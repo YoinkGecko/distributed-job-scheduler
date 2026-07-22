@@ -1,4 +1,4 @@
-import redis from "./redis/client";
+import redis from "./redis/client.js";
 
 async function startWorker() {
   try {
@@ -23,7 +23,7 @@ async function startWorker() {
       ">",
     );
 
-    console.log(jobs);
+    console.log(jobs)
   }
 }
 

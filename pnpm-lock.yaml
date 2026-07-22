@@ -46,6 +46,28 @@ importers:
         specifier: ^8.20.0
         version: 8.20.0
 
+  apps/worker:
+    dependencies:
+      '@scheduler/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
+      ioredis:
+        specifier: ^5.11.1
+        version: 5.11.1
+      pg:
+        specifier: ^8.22.0
+        version: 8.22.0
+    devDependencies:
+      '@types/ioredis':
+        specifier: ^5.0.0
+        version: 5.0.0
+      '@types/pg':
+        specifier: ^8.20.0
+        version: 8.20.0
+
   packages/types: {}
 
 packages:
