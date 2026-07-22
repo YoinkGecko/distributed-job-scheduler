@@ -20,6 +20,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@scheduler/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       express:
         specifier: ^5.1.0
         version: 5.2.1

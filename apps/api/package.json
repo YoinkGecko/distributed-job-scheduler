@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@scheduler/types": "workspace:*",
     "express": "^5.1.0"
   },
   "devDependencies": {

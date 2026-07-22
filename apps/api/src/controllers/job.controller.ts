@@ -5,8 +5,8 @@ import { JobService } from "../services/job.service.js";
 const repository = new JobRepository();
 const jobService = new JobService(repository);
 
-export async function createJob(_req: Request, res: Response) {
-    await jobService.createJob();
+export async function createJob(req: Request, res: Response) {
+    await jobService.createJob(req.body);
     return res.status(200).json({
         message: "Controller reached",
     });
