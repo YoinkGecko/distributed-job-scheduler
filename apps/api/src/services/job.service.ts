@@ -46,7 +46,8 @@ export class JobService {
       lastError: null,
     };
 
-    console.log("Creating Job", job.id);
-    await this.repository.create(job);
+    console.log("\n\nCreating Job", job.id);
+    const returnedJob = await this.repository.create(job);
+    return returnedJob.id;
   }
 }

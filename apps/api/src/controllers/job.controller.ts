@@ -6,8 +6,8 @@ const repository = new JobRepository();
 const jobService = new JobService(repository);
 
 export async function createJob(req: Request, res: Response) {
-    await jobService.createJob(req.body);
+    const jobId = await jobService.createJob(req.body);
     return res.status(200).json({
-        message: "Controller reached",
+        message: `Job Created ${jobId}`,
     });
 }
