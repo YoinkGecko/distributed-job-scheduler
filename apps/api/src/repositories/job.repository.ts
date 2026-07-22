@@ -2,26 +2,25 @@ import { Job } from "@scheduler/types";
 import { pool } from "../db/pool.js";
 
 export class JobRepository {
-    
-  async create(job: Job){
-    const query = `
+  async create(job: Job): Promise<Job> {
+    const insertJobQuery = `
       INSERT INTO jobs (
         id,
         type,
         payload,
         status,
         priority,
-        scheduledat,
-        createdat,
-        updatedat,
-        startedat,
-        completedat,
-        retrycount,
-        maxretries,
-        assignedworker,
-        heartbeatat,
-        lockexpiresat,
-        lasterror
+        scheduled_at,
+        created_at,
+        updated_at,
+        started_at,
+        completed_at,
+        retry_count,
+        max_retries,
+        assigned_worker,
+        heartbeat_at,
+        lock_expires_at,
+        last_error
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
       )
@@ -31,7 +30,7 @@ export class JobRepository {
     const values = [
       job.id,
       job.type,
-      JSON.stringify(job.payload), // Convert object/record to JSON string for jsonb column
+      job.payload,
       job.status,
       job.priority,
       job.scheduledAt,
@@ -47,7 +46,7 @@ export class JobRepository {
       job.lastError,
     ];
 
-    const result = await pool.query(query, values);
+    const result = await pool.query(insertJobQuery, values);
     return result.rows[0];
   }
 }
