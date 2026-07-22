@@ -14,8 +14,6 @@
 
     "resolveJsonModule": true,
 
-    "declaration": true,
-
     "sourceMap": true
   }
 }
