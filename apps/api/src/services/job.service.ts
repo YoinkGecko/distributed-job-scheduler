@@ -1,8 +1,12 @@
 import { JobRepository } from "../repositories/job.repository.js";
+import { RedisPublisher } from "../publishers/redis.publisher.js";
 import { CreateJobInput, JobStatus, JobPriority, Job } from "@scheduler/types";
 
 export class JobService {
-  constructor(private readonly repository: JobRepository) {}
+  constructor(
+    private readonly repository: JobRepository,
+    private readonly publisher: RedisPublisher,
+  ) {}
 
   private RetryPolicy = {
     NORMAL: 3,
@@ -47,7 +51,8 @@ export class JobService {
     };
 
     console.log("\n\nCreating Job", job.id);
-    const returnedJob = await this.repository.create(job);
-    return returnedJob.id;
+    const createdJob = await this.repository.create(job);
+    await this.publisher.publish(createdJob.id);
+    return createdJob;
   }
 }
