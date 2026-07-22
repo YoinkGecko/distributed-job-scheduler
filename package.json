@@ -1,7 +1,7 @@
 {
   "name": "distributed-job-scheduler",
   "private": true,
-  "packageManager": "pnpm@10",
+  "packageManager": "pnpm@10.0.0",
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r dev",
