@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
+import { JobRepository } from "../repositories/job.repository.js";
 import { JobService } from "../services/job.service.js";
-const jobService = new JobService();
+
+const repository = new JobRepository();
+const jobService = new JobService(repository);
 
 export async function createJob(_req: Request, res: Response) {
     await jobService.createJob();
