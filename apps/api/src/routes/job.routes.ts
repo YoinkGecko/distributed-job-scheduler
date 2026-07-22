@@ -1,11 +1,7 @@
 import { Router } from "express";
+import {createJob} from '../controllers/job.controller.js'
 
 const router = Router();
-
-router.post("/", (_req, res) => {
-    res.json({
-        message: "Create Job Endpoint"
-    });
-});
+router.post("/", createJob);
 
 export default router;
