@@ -17,29 +17,23 @@ export class JobService {
       id: crypto.randomUUID(),
       type: input.type,
       payload: input.payload,
-
       status: JobStatus.PENDING,
       priority: input.priority ?? JobPriority.NORMAL,
-
       scheduledAt: input.scheduledAt ?? new Date(),
-
       createdAt: new Date(),
       updatedAt: new Date(),
       startedAt: null,
       completedAt: null,
-
       retryCount: 0,
       maxRetries: 3,
-
       assignedWorker: null,
       heartbeatAt: null,
       lockExpiresAt: null,
-
       lastError: null,
     };
 
     console.log("Job Service reached");
-    await this.repository.create();
-    
+    await this.repository.create(job);
+
   }
 }
