@@ -52,7 +52,7 @@ export class JobService {
 
     console.log("\n\nCreating Job", job.id);
     const createdJob = await this.repository.create(job);
-    await this.publisher.publish(createdJob.id);
+    await this.publisher.publish(job.id);
     return createdJob;
   }
 }

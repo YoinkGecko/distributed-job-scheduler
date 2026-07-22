@@ -47,7 +47,7 @@ export class JobRepository {
     ];
 
     const result = await pool.query(insertJobQuery, values);
-    console.log("Job created\n\n");
+    console.log("Job created");
     return result.rows[0];
   }
 }
