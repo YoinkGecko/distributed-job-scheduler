@@ -1,24 +1,25 @@
 import { JobRepository } from "../repositories/job.repository.js";
-import {
-  CreateJobInput,
-  JobStatus,
-  JobPriority,
-  Job,
-} from "@scheduler/types";
+import { CreateJobInput, JobStatus, JobPriority, Job } from "@scheduler/types";
 
 export class JobService {
   constructor(private readonly repository: JobRepository) {}
 
+  private RetryPolicy = {
+    NORMAL: 3,
+    HIGH: 5,
+    CRITICAL: 10,
+  };
+
   private maxRetries(priority: JobPriority) {
     switch (priority) {
       case JobPriority.CRITICAL:
-        return 10;
+        return this.RetryPolicy.CRITICAL;
 
       case JobPriority.HIGH:
-        return 5;
+        return this.RetryPolicy.HIGH;
 
       default:
-        return 3;
+        return this.RetryPolicy.NORMAL;
     }
   }
 
