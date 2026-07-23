@@ -42,6 +42,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@scheduler/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@scheduler/redis':
         specifier: workspace:*
         version: link:../../packages/redis
@@ -51,13 +54,6 @@ importers:
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
-      pg:
-        specifier: ^8.22.0
-        version: 8.22.0
-    devDependencies:
-      '@types/pg':
-        specifier: ^8.20.0
-        version: 8.20.0
 
   packages/database:
     dependencies:

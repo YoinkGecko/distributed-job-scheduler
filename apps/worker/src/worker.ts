@@ -1,4 +1,5 @@
 import redis from "@scheduler/redis";
+import {JobRepository} from "@scheduler/database";
 
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";

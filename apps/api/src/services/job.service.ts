@@ -1,4 +1,4 @@
-import { JobRepository } from "../repositories/job.repository.js";
+import { JobRepository } from "@scheduler/database";
 import { RedisPublisher } from "../publishers/redis.publisher.js";
 import { CreateJobInput, JobStatus, JobPriority, Job } from "@scheduler/types";
 

@@ -10,10 +10,9 @@
   "dependencies": {
     "@scheduler/redis": "workspace:*",
     "@scheduler/types": "workspace:*",
-    "dotenv": "^17.4.2",
-    "pg": "^8.22.0"
+    "@scheduler/database": "workspace:*",
+    "dotenv": "^17.4.2"
   },
   "devDependencies": {
-    "@types/pg": "^8.20.0"
   }
 }
