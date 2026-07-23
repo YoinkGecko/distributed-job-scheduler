@@ -4,7 +4,7 @@ import { JobStatus } from "@scheduler/types";
 
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";
-const CONSUMER_NAME = "worker-1";
+const CONSUMER_NAME = process.env.CONSUMER_NAME!; //enter CONSUMER_NAME=worker-1 pnpm --filter @scheduler/worker dev in termianl
 
 const jobRepository = new JobRepository();
 
