@@ -84,7 +84,7 @@ async function startWorker() {
           // Tell Redis we're done
           //await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
 
-          console.log(`[Worker] Job ${messageId} completed.`);
+          //console.log(`[Worker] Job ${messageId} completed.`);
         } catch (error) {
           console.error("[Worker] Job failed:", error);
 
