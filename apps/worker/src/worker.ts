@@ -4,6 +4,7 @@ import {JobRepository} from "@scheduler/database";
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";
 const CONSUMER_NAME = "worker-1";
+const jobRepository = new JobRepository();
 
 async function startWorker() {
   try {
@@ -50,6 +51,9 @@ async function startWorker() {
         }
 
         console.log(`\n[Worker] Processing Job ${messageId}:`, jobData);
+
+        const result = await jobRepository.findById(jobData.jobId);
+        console.log(result);
 
         await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
         

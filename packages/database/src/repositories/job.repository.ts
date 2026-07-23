@@ -1,5 +1,5 @@
 import { Job } from "@scheduler/types";
-import { pool } from "../../pool";
+import { pool } from "../../pool.js";
 
 export class JobRepository {
   async create(job: Job): Promise<Job> {
@@ -57,10 +57,10 @@ export class JobRepository {
       WHERE id = $1;
     `;
 
-    const values = [id];
-
-    const result = await pool.query(findJobQuery, values);
-    if(!result) return null;
+    const result = await pool.query(findJobQuery, [id]);
+    if (result.rows.length === 0) {
+      return null;
+    }
     return result.rows[0];
   }
 }
