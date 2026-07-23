@@ -93,12 +93,4 @@ export class JobRepository {
 
     await pool.query(query, [jobId]);
   }
-
-  isHeartbeatStale(job: Job, timeoutMs: number): boolean {
-    if (job.heartbeatAt === null) {
-      return true;
-    }
-
-    return Date.now() - job.heartbeatAt.getTime() > timeoutMs;
-  }
 }

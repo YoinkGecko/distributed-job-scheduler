@@ -1,7 +1,7 @@
 import redis from "@scheduler/redis";
 import { JobRepository } from "@scheduler/database";
 import { JobStatus } from "@scheduler/types";
-import { snakeToCamel } from "@scheduler/database";
+import {isHeartbeatStale} from './utility/utilityFunction.js'
 
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";
@@ -33,7 +33,6 @@ async function startRecoveryWorker() {
           jobData[fields[i]] = fields[i + 1];
         }
 
-
         // FIX 1: Safeguard against malformed stream payloads without a jobId
         if (!jobData.jobId) {
           console.log(
@@ -50,6 +49,11 @@ async function startRecoveryWorker() {
         if (!job) {
           console.log("Job not found in database");
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
+          continue;
+        }
+
+        if (!isHeartbeatStale(job, 30000)) {
+          console.log(`[Recovery Worker] Job ${job.id} is healthy`);
           continue;
         }
 
