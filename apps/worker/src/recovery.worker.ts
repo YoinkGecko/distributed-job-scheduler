@@ -44,17 +44,16 @@ async function startRecoveryWorker() {
           continue;
         }
 
-        const dbJob = await jobRepository.findById(jobData.jobId);
+        const job = await jobRepository.findById(jobData.jobId);
 
         // FIX 2: Check if dbJob is null BEFORE passing to snakeToCamel!
         // Passing null into snakeToCamel causes undefined properties or runtime errors.
-        if (!dbJob) {
+        if (!job) {
           console.log("Job not found in database");
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
           continue;
         }
 
-        const job = snakeToCamel(dbJob);
 
         // FIX 3: Log current retry status and use >= to prevent overshoot beyond maxRetries
         console.log(

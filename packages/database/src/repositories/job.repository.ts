@@ -1,5 +1,6 @@
 import { Job, JobStatus } from "@scheduler/types";
 import { pool } from "../../pool.js";
+import { snakeToCamel } from "@scheduler/database";
 
 export class JobRepository {
   async create(job: Job): Promise<Job> {
@@ -61,7 +62,7 @@ export class JobRepository {
     if (result.rows.length === 0) {
       return null;
     }
-    return result.rows[0];
+    return snakeToCamel(result.rows[0]);
   }
 
   async updateStatus(jobId: string, status: JobStatus): Promise<void> {
