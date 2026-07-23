@@ -71,6 +71,6 @@ export class JobRepository {
       WHERE id = $2;
     `;
 
-    const result = await pool.query(updateJobStatusQuery, [status,id]);
+    await pool.query(updateJobStatusQuery, [status,id]);
   }
 }
