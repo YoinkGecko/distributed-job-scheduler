@@ -61,9 +61,6 @@ importers:
 
   packages/database:
     dependencies:
-      '@scheduler/database':
-        specifier: workspace:*
-        version: 'link:'
       '@scheduler/types':
         specifier: workspace:*
         version: link:../types

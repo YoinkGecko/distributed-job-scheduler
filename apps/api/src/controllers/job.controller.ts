@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { JobRepository } from "../repositories/job.repository.js";
+import { JobRepository } from "@scheduler/database";
 import { RedisPublisher } from "../publishers/redis.publisher.js";
 import { JobService } from "../services/job.service.js";
 
