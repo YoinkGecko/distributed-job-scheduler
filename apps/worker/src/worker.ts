@@ -1,5 +1,6 @@
 import redis from "@scheduler/redis";
 import { JobRepository } from "@scheduler/database";
+import { JobStatus } from "@scheduler/types";
 
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";
@@ -53,8 +54,16 @@ async function startWorker() {
         console.log(`\n[Worker] Processing Job ${messageId}:`, jobData);
 
         const job = await jobRepository.findById(jobData.jobId);
+
         if (job) {
-          console.log(job); // work
+          await jobRepository.updateStatus(jobData.jobId, JobStatus.RUNNING);
+          try {
+            console.log("Working", job); // work
+          } catch (err) {
+            await jobRepository.updateStatus(jobData.jobId, JobStatus.FAILED);
+            continue;
+          }
+          await jobRepository.updateStatus(jobData.jobId, JobStatus.COMPLETED);
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
           console.log(`[Worker] Job ${messageId} ACKNOWLEDGED and completed.`);
         } else {
@@ -62,8 +71,6 @@ async function startWorker() {
           continue;
         }
       }
-
-      
     } catch (error) {
       console.error("[Worker] Error processing job from stream:", error);
     }
