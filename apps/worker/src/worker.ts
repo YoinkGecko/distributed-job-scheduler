@@ -1,4 +1,4 @@
-import redis from "./redis/client.js";
+import redis from "@scheduler/redis";
 
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";

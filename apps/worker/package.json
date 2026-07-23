@@ -1,5 +1,5 @@
 {
-  "name": "@scheduler/wroker",
+  "name": "@scheduler/worker",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,13 +8,12 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@scheduler/redis": "workspace:*",
     "@scheduler/types": "workspace:*",
     "dotenv": "^17.4.2",
-    "ioredis": "^5.11.1",
     "pg": "^8.22.0"
   },
   "devDependencies": {
-    "@types/ioredis": "^5.0.0",
     "@types/pg": "^8.20.0"
   }
 }

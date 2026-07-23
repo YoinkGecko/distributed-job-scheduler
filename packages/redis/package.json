@@ -1,0 +1,21 @@
+{
+  "name": "@scheduler/redis",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/client.js",
+  "types": "./dist/client.d.ts",
+  "exports": {
+    ".": "./src/client.ts"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "ioredis": "^5.11.1"
+  },
+  "devDependencies": {
+    "@types/ioredis": "^5.0.0"
+  }
+}
