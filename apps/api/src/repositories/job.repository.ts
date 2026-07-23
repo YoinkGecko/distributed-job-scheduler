@@ -1,5 +1,5 @@
 import { Job } from "@scheduler/types";
-import { pool } from "../db/pool.js";
+import { pool } from "@scheduler/database";
 
 export class JobRepository {
   async create(job: Job): Promise<Job> {
