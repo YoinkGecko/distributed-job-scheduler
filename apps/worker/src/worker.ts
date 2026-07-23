@@ -40,6 +40,7 @@ async function startWorker() {
       if (!response) continue;
 
       const [[, entries]] = response;
+      
 
       for (const [messageId, fields] of entries) {
         const jobData: Record<string, string> = {};
@@ -75,13 +76,13 @@ async function startWorker() {
 
           // Simulate long-running work
           console.log("[Worker] Processing...");
-          await sleep(60000);
+          await sleep(30000);
 
           // Job finished successfully
           await jobRepository.updateStatus(job.id, JobStatus.COMPLETED);
 
           // Tell Redis we're done
-          // await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
+          //await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
 
           console.log(`[Worker] Job ${messageId} completed.`);
         } catch (error) {

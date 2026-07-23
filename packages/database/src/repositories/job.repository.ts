@@ -71,7 +71,7 @@ export class JobRepository {
       WHERE id = $2;
     `;
 
-    await pool.query(updateJobStatusQuery, [status,jobId]);
+    await pool.query(updateJobStatusQuery, [status, jobId]);
   }
 
   async updateHeartbeat(jobId: string): Promise<void> {
@@ -82,5 +82,14 @@ export class JobRepository {
     `;
 
     await pool.query(updateHeartbeatQuery, [jobId]);
-}
+  }
+  async incrementRetryCount(jobId: string): Promise<void> {
+    const query = `
+        UPDATE jobs
+        SET retry_count = retry_count + 1
+        WHERE id = $1;
+    `;
+
+    await pool.query(query, [jobId]);
+  }
 }
