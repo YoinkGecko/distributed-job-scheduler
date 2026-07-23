@@ -1,5 +1,5 @@
 import redis from "@scheduler/redis";
-import {JobRepository} from "@scheduler/database";
+import { JobRepository } from "@scheduler/database";
 
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";
@@ -18,7 +18,7 @@ async function startWorker() {
     }
   }
 
-  console.log(`[Worker] Waiting for jobs on "${STREAM_KEY}"...`);
+  console.log(`[Worker] Waiting for jobs on "${STREAM_KEY}"...\n\n`);
 
   while (true) {
     try {
@@ -29,10 +29,10 @@ async function startWorker() {
         "COUNT",
         1,
         "BLOCK",
-        0, 
+        0,
         "STREAMS",
         STREAM_KEY,
-        ">"
+        ">",
       )) as [string, [string, string[]][]][];
 
       // console.log("\n\nStream Name:",response[0][0]); //stream name
@@ -52,15 +52,18 @@ async function startWorker() {
 
         console.log(`\n[Worker] Processing Job ${messageId}:`, jobData);
 
-        const result = await jobRepository.findById(jobData.jobId);
-        console.log(result);
-
-        await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
-        
-        console.log(`[Worker] Job ${messageId} ACKNOWLEDGED and completed.`);
-
+        const job = await jobRepository.findById(jobData.jobId);
+        if (job) {
+          console.log(job); // work
+          await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
+          console.log(`[Worker] Job ${messageId} ACKNOWLEDGED and completed.`);
+        } else {
+          console.error("Job not found");
+          continue;
+        }
       }
 
+      
     } catch (error) {
       console.error("[Worker] Error processing job from stream:", error);
     }
