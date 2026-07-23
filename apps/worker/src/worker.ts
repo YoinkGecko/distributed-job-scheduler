@@ -64,7 +64,7 @@ async function startWorker() {
             continue;
           }
           await jobRepository.updateStatus(jobData.jobId, JobStatus.COMPLETED);
-          await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
+          //await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
           console.log(`[Worker] Job ${messageId} ACKNOWLEDGED and completed.`);
         } else {
           console.error("Job not found");

@@ -51,26 +51,36 @@ export class JobRepository {
     return result.rows[0];
   }
 
-  async findById(id: string): Promise<Job | null> {
+  async findById(jobId: string): Promise<Job | null> {
     const findJobQuery = `
       SELECT * FROM jobs
       WHERE id = $1;
     `;
 
-    const result = await pool.query(findJobQuery, [id]);
+    const result = await pool.query(findJobQuery, [jobId]);
     if (result.rows.length === 0) {
       return null;
     }
     return result.rows[0];
   }
 
-  async updateStatus(id: string, status: JobStatus): Promise<void> {
+  async updateStatus(jobId: string, status: JobStatus): Promise<void> {
     const updateJobStatusQuery = `
       UPDATE jobs
       SET status = $1
       WHERE id = $2;
     `;
 
-    await pool.query(updateJobStatusQuery, [status,id]);
+    await pool.query(updateJobStatusQuery, [status,jobId]);
   }
+
+async updateHeartbeat(jobId: string): Promise<void> {
+    const updateHeartbeatQuery = `
+        UPDATE jobs
+        SET heartbeat_at = NOW()
+        WHERE id = $1;
+    `;
+
+    await pool.query(updateHeartbeatQuery, [jobId]);
+}
 }
