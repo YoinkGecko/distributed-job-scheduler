@@ -26,8 +26,6 @@ async function startRecoveryWorker() {
 
       const [, entries] = response;
 
-      console.log("Entries", entries);
-
       for (const [messageId, fields] of entries) {
         const jobData: Record<string, string> = {};
 
@@ -35,11 +33,12 @@ async function startRecoveryWorker() {
           jobData[fields[i]] = fields[i + 1];
         }
 
-        console.log(jobData);
 
         // FIX 1: Safeguard against malformed stream payloads without a jobId
         if (!jobData.jobId) {
-          console.log(`[Recovery Worker] Missing jobId in message ${messageId}`);
+          console.log(
+            `[Recovery Worker] Missing jobId in message ${messageId}`,
+          );
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
           continue;
         }
@@ -54,10 +53,9 @@ async function startRecoveryWorker() {
           continue;
         }
 
-
         // FIX 3: Log current retry status and use >= to prevent overshoot beyond maxRetries
         console.log(
-          `[Recovery Worker] Job ${job.id} - RetryCount: ${job.retryCount}, MaxRetries: ${job.maxRetries}`
+          `[Recovery Worker] Job ${job.id} - RetryCount: ${job.retryCount}, MaxRetries: ${job.maxRetries}`,
         );
 
         if (job.retryCount >= job.maxRetries) {
@@ -76,7 +74,7 @@ async function startRecoveryWorker() {
         await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
         await redis.xadd(STREAM_KEY, "*", "jobId", job.id);
 
-        console.log("Job requeued");
+        console.log(`[Recovery Worker] Requeued Job ${job.id}`);
       }
     } catch (err) {
       // FIX 4: Protect loop from unhandled crashes
