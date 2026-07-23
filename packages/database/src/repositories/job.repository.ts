@@ -1,4 +1,4 @@
-import { Job } from "@scheduler/types";
+import { Job, JobStatus } from "@scheduler/types";
 import { pool } from "../../pool.js";
 
 export class JobRepository {
@@ -62,5 +62,15 @@ export class JobRepository {
       return null;
     }
     return result.rows[0];
+  }
+
+  async updateStatus(id: string, status: JobStatus): Promise<void> {
+    const updateJobStatusQuery = `
+      UPDATE jobs
+      SET status = $1
+      WHERE id = $2;
+    `;
+
+    const result = await pool.query(updateJobStatusQuery, [id,status]);
   }
 }
