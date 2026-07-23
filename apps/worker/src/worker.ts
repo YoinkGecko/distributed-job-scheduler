@@ -82,9 +82,9 @@ async function startWorker() {
           await jobRepository.updateStatus(job.id, JobStatus.COMPLETED);
 
           // Tell Redis we're done
-          //await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
+          await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
 
-          //console.log(`[Worker] Job ${messageId} completed.`);
+          console.log(`[Worker] Job ${messageId} completed.`);
         } catch (error) {
           console.error("[Worker] Job failed:", error);
 
