@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/worker.ts",
+    "rw": "tsx watch src/recovery.worker.ts",
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {

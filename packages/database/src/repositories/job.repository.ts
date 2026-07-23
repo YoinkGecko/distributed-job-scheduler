@@ -74,7 +74,7 @@ export class JobRepository {
     await pool.query(updateJobStatusQuery, [status,jobId]);
   }
 
-async updateHeartbeat(jobId: string): Promise<void> {
+  async updateHeartbeat(jobId: string): Promise<void> {
     const updateHeartbeatQuery = `
         UPDATE jobs
         SET heartbeat_at = NOW()
