@@ -1,4 +1,4 @@
-import redis from "../redis/client.js";
+import redis from "@scheduler/redis";
 
 export class RedisPublisher {
   async publish(jobId: string) {
