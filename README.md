@@ -25,6 +25,10 @@ The repository is organized as a pnpm workspace with these main apps and package
 - `packages/redis` - Redis client wrapper using `ioredis`
 - `packages/types` - shared TypeScript types and enums
 
+### Project diagram
+
+![Project Diagram](images/diagram.png)
+
 ### Data flow
 
 1. Client calls API endpoint `POST /jobs`
