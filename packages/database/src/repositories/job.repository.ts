@@ -115,4 +115,19 @@ export class JobRepository {
 
     return snakeToCamel(result.rows[0]);
   }
+
+  async prepareForRetry(jobId: string): Promise<void> {
+    const prepareForRetryQuery = `
+    UPDATE jobs
+    SET
+        retry_count = retry_count + 1,
+        status = 'PENDING',
+        assigned_worker = NULL,
+        heartbeat_at = NULL,
+        updated_at = NOW()
+    WHERE id = $1;
+    `;
+
+    await pool.query(prepareForRetryQuery, [jobId]);
+  }
 }

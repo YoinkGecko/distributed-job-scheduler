@@ -1,7 +1,7 @@
 import redis from "@scheduler/redis";
 import { JobRepository } from "@scheduler/database";
 import { JobStatus } from "@scheduler/types";
-import {isHeartbeatStale} from './utility/utilityFunction.js'
+import { isHeartbeatStale } from "./utility/utilityFunction.js";
 
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";
@@ -44,8 +44,6 @@ async function startRecoveryWorker() {
 
         const job = await jobRepository.findById(jobData.jobId);
 
-        // FIX 2: Check if dbJob is null BEFORE passing to snakeToCamel!
-        // Passing null into snakeToCamel causes undefined properties or runtime errors.
         if (!job) {
           console.log("Job not found in database");
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
@@ -54,6 +52,17 @@ async function startRecoveryWorker() {
 
         if (!isHeartbeatStale(job, 30000)) {
           console.log(`[Recovery Worker] Job ${job.id} is healthy`);
+          continue;
+        }
+
+        if (
+          job.status === JobStatus.COMPLETED ||
+          job.status === JobStatus.DEAD
+        ) {
+          await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
+          console.log(
+            `[Recovery Worker] Job ${job.id} is already ${job.status}. ACKing and skipping.`,
+          );
           continue;
         }
 
@@ -66,13 +75,12 @@ async function startRecoveryWorker() {
           await jobRepository.updateStatus(job.id, JobStatus.DEAD);
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
 
-          console.log("Job moved to DEAD");
+          console.log(`[Recovery Worker] Job ${job.id} moved to DEAD`);
           continue;
         }
 
         // Increment retry count in DB and reset status to PENDING
-        await jobRepository.incrementRetryCount(job.id);
-        await jobRepository.updateStatus(job.id, JobStatus.PENDING);
+        await jobRepository.prepareForRetry(job.id);
 
         // ACK the old stuck message from PEL before issuing a new XADD
         await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
