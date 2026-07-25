@@ -34,13 +34,12 @@ async function startWorker() {
         0,
         "STREAMS",
         STREAM_KEY,
-        ">"
+        ">",
       )) as [string, [string, string[]][]][];
 
       if (!response) continue;
 
       const [[, entries]] = response;
-      
 
       for (const [messageId, fields] of entries) {
         const jobData: Record<string, string> = {};
@@ -51,10 +50,13 @@ async function startWorker() {
 
         console.log(`\n[Worker] Received Job ${messageId}`, jobData);
 
-        const job = await jobRepository.findById(jobData.jobId);
+        const job = await jobRepository.claimJob(jobData.jobId, CONSUMER_NAME);
 
         if (!job) {
-          console.error("[Worker] Job not found.");
+          console.log(
+            `[Worker] Job ${jobData.jobId} already claimed by another worker or not PENDING, skipping.`,
+          );
+          await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
           continue;
         }
 
@@ -62,7 +64,7 @@ async function startWorker() {
 
         try {
           // Job started
-          await jobRepository.updateStatus(job.id, JobStatus.RUNNING);
+          console.log(`[Worker] Successfully claimed Job ${job.id}`);
 
           // Heartbeat every 10 seconds
           heartbeatInterval = setInterval(async () => {
@@ -107,9 +109,7 @@ function sleep(ms: number): Promise<void> {
 
 startWorker();
 
-
-
-      // console.log("\n\nStream Name:",response[0][0]); //stream name
-      // console.log("Enteries",response[0][1][0]); //entries
-      // console.log(response[0][1][0][0]); //job id
-      // console.log(response[0][1][0][1]); //job fields
+// console.log("\n\nStream Name:",response[0][0]); //stream name
+// console.log("Enteries",response[0][1][0]); //entries
+// console.log(response[0][1][0][0]); //job id
+// console.log(response[0][1][0][1]); //job fields

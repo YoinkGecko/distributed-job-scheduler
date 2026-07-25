@@ -84,6 +84,7 @@ export class JobRepository {
 
     await pool.query(updateHeartbeatQuery, [jobId]);
   }
+
   async incrementRetryCount(jobId: string): Promise<void> {
     const query = `
         UPDATE jobs
@@ -92,5 +93,26 @@ export class JobRepository {
     `;
 
     await pool.query(query, [jobId]);
+  }
+
+  async claimJob(jobId: string, workerId: string): Promise<Job | null> {
+    const query = `
+    UPDATE jobs
+    SET 
+      status = 'RUNNING',
+      assigned_worker = $1,
+      updated_at = NOW(),
+      heartbeat_at = NOW()
+    WHERE id = $2 AND status = 'PENDING'
+    RETURNING *;
+  `;
+
+    const result = await pool.query(query, [workerId, jobId]);
+
+    if (result.rows.length === 0) {
+      return null; // Another worker already claimed it!
+    }
+
+    return snakeToCamel(result.rows[0]);
   }
 }
