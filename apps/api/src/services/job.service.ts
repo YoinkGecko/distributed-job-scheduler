@@ -54,11 +54,11 @@ export class JobService {
       lastError: null,
     };
 
-      const event = {
+      const outboxPayload = {
       jobId: job.id,
       type: job.type,
       priority: job.priority,
-      payload:job.payload
+      scheduledAt : job.scheduledAt
       }
 
     console.log("\n\nCreating Job", job.id);
@@ -67,7 +67,7 @@ export class JobService {
       await client.query("BEGIN");
 
       const createdJob = await this.jobRepository.createJob(job, client);
-      await this.outboxService.createEvent(event,client);
+      await this.outboxService.createEvent(outboxPayload,client);
 
       await client.query("COMMIT");
 

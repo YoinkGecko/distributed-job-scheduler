@@ -27,7 +27,7 @@ export interface Job {
   status: JobStatus;
   priority: JobPriority;
 
-  scheduledAt: Date | null;
+  scheduledAt: Date;
 
   createdAt: Date;
   updatedAt: Date;

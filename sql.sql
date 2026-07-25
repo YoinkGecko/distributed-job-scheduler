@@ -19,12 +19,13 @@ CREATE TABLE jobs (
 
 
 CREATE TABLE outbox_events (
-    id UUID PRIMARY KEY,
-    aggregate_type VARCHAR(100) NOT NULL, --example JOB,PAYMENT,USER
+    id UUID PRIMARY KEY, -- the table rows unique id not job id!!
+    aggregate_type VARCHAR(100) NOT NULL, --example JOB,PAYMENT,USER,ORDER for which we are pulishing event
     aggregate_id UUID NOT NULL, -- job.id
-    event_type VARCHAR(100) NOT NULL, --JOB_CREATED,JOB_CANCELLED
-    payload JSONB NOT NULL,
-    published BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    published_at TIMESTAMPTZ
+    event_type VARCHAR(100) NOT NULL, --JOB_CREATED,JOB_CANCELLED,JOB_FAILED,JOB_COMPLETED
+    payload JSONB NOT NULL, --This is the actual event data. 
+    --{"jobId": "9c2b87b3-2c3d-4baf-b3d1-8f2d44b5f123","type": "SEND_EMAIL","priority": 5,"scheduledAt": "2026-07-26T10:00:00Z"}
+    published BOOLEAN NOT NULL DEFAULT FALSE, --is it published?
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), 
+    published_at TIMESTAMPTZ 
 );
