@@ -1,3 +1,4 @@
+import {PoolClient} from "pg";
 import { Job, JobStatus } from "@scheduler/types";
 import { pool } from "../../pool.js";
 import { snakeToCamel } from "@scheduler/database";
@@ -48,6 +49,55 @@ export class JobRepository {
     ];
 
     const result = await pool.query(insertJobQuery, values);
+    console.log("Job created");
+    return result.rows[0];
+  }
+
+  async createJob(job: Job, client: PoolClient): Promise<Job> {
+    const insertJobQuery = `
+      INSERT INTO jobs (
+        id,
+        type,
+        payload,
+        status,
+        priority,
+        scheduled_at,
+        created_at,
+        updated_at,
+        started_at,
+        completed_at,
+        retry_count,
+        max_retries,
+        assigned_worker,
+        heartbeat_at,
+        lock_expires_at,
+        last_error
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+      )
+      RETURNING *;
+    `;
+
+    const values = [
+      job.id,
+      job.type,
+      job.payload,
+      job.status,
+      job.priority,
+      job.scheduledAt,
+      job.createdAt,
+      job.updatedAt,
+      job.startedAt,
+      job.completedAt,
+      job.retryCount,
+      job.maxRetries,
+      job.assignedWorker,
+      job.heartbeatAt,
+      job.lockExpiresAt,
+      job.lastError,
+    ];
+
+    const result = await client.query(insertJobQuery, values);
     console.log("Job created");
     return result.rows[0];
   }

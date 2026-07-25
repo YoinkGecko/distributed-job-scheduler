@@ -1,11 +1,14 @@
 import { JobRepository } from "@scheduler/database";
-import { RedisPublisher } from "../publishers/redis.publisher.js";
 import { CreateJobInput, JobStatus, JobPriority, Job } from "@scheduler/types";
+import { pool } from "@scheduler/database";
+
+//import other services
+import { OutboxService } from "./outbox.service.js";
 
 export class JobService {
   constructor(
-    private readonly repository: JobRepository,
-    private readonly publisher: RedisPublisher,
+    private readonly jobRepository: JobRepository,
+    private readonly outboxService: OutboxService,
   ) {}
 
   private RetryPolicy = {
@@ -28,6 +31,7 @@ export class JobService {
   }
 
   async createJob(input: CreateJobInput) {
+    const client = await pool.connect();
     const priority = input.priority ?? JobPriority.NORMAL;
     const now = new Date();
 
@@ -50,9 +54,31 @@ export class JobService {
       lastError: null,
     };
 
+      const event = {
+      jobId: job.id,
+      type: job.type,
+      priority: job.priority,
+      payload:job.payload
+      }
+
     console.log("\n\nCreating Job", job.id);
-    const createdJob = await this.repository.create(job);
-    await this.publisher.publish(job.id);
-    return createdJob;
+
+    try {
+      await client.query("BEGIN");
+
+      const createdJob = await this.jobRepository.createJob(job, client);
+      await this.outboxService.createEvent(event,client);
+
+      await client.query("COMMIT");
+
+      return createdJob;
+
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
   }
 }

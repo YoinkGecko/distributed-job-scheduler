@@ -1,15 +1,18 @@
 import { Request, Response } from "express";
 import { JobRepository } from "@scheduler/database";
-import { RedisPublisher } from "../publishers/redis.publisher.js";
+import { OutboxRepository } from "@scheduler/database";
+import { OutboxService } from "../services/outbox.service.js";
 import { JobService } from "../services/job.service.js";
 
-const repository = new JobRepository();
-const publisher = new RedisPublisher();
-const jobService = new JobService(repository,publisher);
+const jobRepository = new JobRepository();
+const outboxRepository = new OutboxRepository();
+const outboxService = new OutboxService(outboxRepository);
+const jobService = new JobService(jobRepository, outboxService);
 
 export async function createJob(req: Request, res: Response) {
-    const createdJob = await jobService.createJob(req.body);
-    return res.status(200).json({
-        message: `Job Created `,createdJob,
-    });
+  const createdJob = await jobService.createJob(req.body);
+  return res.status(200).json({
+    message: `Job Created `,
+    createdJob,
+  });
 }
