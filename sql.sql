@@ -16,3 +16,15 @@ CREATE TABLE jobs (
   lock_expires_at TIMESTAMPTZ,
   last_error TEXT
 );
+
+
+CREATE TABLE outbox_events (
+    id UUID PRIMARY KEY,
+    aggregate_type VARCHAR(100) NOT NULL, --example JOB,PAYMENT,USER
+    aggregate_id UUID NOT NULL, -- job.id
+    event_type VARCHAR(100) NOT NULL, --JOB_CREATED,JOB_CANCELLED
+    payload JSONB NOT NULL,
+    published BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    published_at TIMESTAMPTZ
+);
