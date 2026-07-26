@@ -18,15 +18,19 @@ export class OutboxPublisher {
     }
   }
 
-  private async publishPendingEvents() {
-    const events = await this.repository.findUnpublishedEvents(100);
+  private async publishPendingEvents(): Promise<void> {
+    const events = await this.repository.findUnpublishedEvents(100); //Batch size of 100
 
     if (events.length === 0) {
       return;
     }
 
     for (const event of events) {
-      await this.publishEvent(event);
+      try {
+        await this.publishEvent(event);
+      } catch (err) {
+        console.error(`Failed to publish event ${event.id}`, err);
+      }
     }
   }
 
