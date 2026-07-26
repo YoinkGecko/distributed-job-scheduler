@@ -1,6 +1,7 @@
 import redis from "@scheduler/redis";
 import { OutboxPublisherRepository } from "@scheduler/database";
 import { OutboxEvent, JobCreatedEventPayload } from "@scheduler/types";
+import { sleep } from "./utils/sleep";
 
 const STREAM_KEY = "jobs-stream";
 
@@ -13,7 +14,7 @@ export class OutboxPublisher {
     while (true) {
       await this.publishPendingEvents();
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await sleep(1000);
     }
   }
 
@@ -29,11 +30,13 @@ export class OutboxPublisher {
     }
   }
 
-  private async publishEvent( event: OutboxEvent<JobCreatedEventPayload>): Promise<void> {
+  private async publishEvent(
+    event: OutboxEvent<JobCreatedEventPayload>,
+  ): Promise<void> {
     await redis.xadd(STREAM_KEY, "*", "jobId", event.payload.jobId);
 
     await this.repository.markPublished(event.id);
 
-    console.log(`Published ${event.id}`);
+    console.log(`Published Event=${event.id} Job=${event.payload.jobId}`);
   }
 }
