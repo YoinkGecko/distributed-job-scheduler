@@ -2,7 +2,7 @@ import { OutboxEvent, JobCreatedEventPayload } from "@scheduler/types";
 
 import { pool } from "@scheduler/database";
 
-export class OutboxRepository {
+export class OutboxPublisherRepository {
 
   async findUnpublishedEvents(limit: number): Promise<OutboxEvent<JobCreatedEventPayload>[]> {
     const query = `
