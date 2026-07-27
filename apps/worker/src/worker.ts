@@ -11,16 +11,16 @@ const jobRepository = new JobRepository();
 async function startWorker() {
   try {
     await redis.xgroup("CREATE", STREAM_KEY, GROUP_NAME, "0", "MKSTREAM");
-    console.log(`[Worker] Consumer Group "${GROUP_NAME}" created.`);
+    console.log(`[${CONSUMER_NAME}] Consumer Group "${GROUP_NAME}" created.`);
   } catch (error: any) {
     if (error.message.includes("BUSYGROUP")) {
-      console.log(`[Worker] Consumer Group "${GROUP_NAME}" already exists.`);
+      console.log(`[${CONSUMER_NAME}] Consumer Group "${GROUP_NAME}" already exists.`);
     } else {
-      console.error("[Worker] Error creating consumer group:", error);
+      console.error("[${CONSUMER_NAME}] Error creating consumer group:", error);
     }
   }
 
-  console.log(`[Worker] Waiting for jobs on "${STREAM_KEY}"...\n`);
+  console.log(`[${CONSUMER_NAME}] Waiting for jobs on "${STREAM_KEY}"...\n`);
 
   while (true) {
     try {
@@ -48,13 +48,13 @@ async function startWorker() {
           jobData[fields[i]] = fields[i + 1];
         }
 
-        console.log(`\n[Worker] Received Job ${messageId}`, jobData);
+        console.log(`\n[${CONSUMER_NAME}] Received Job ${messageId}`, jobData);
 
         const job = await jobRepository.claimJob(jobData.jobId, CONSUMER_NAME);
 
         if (!job) {
           console.log(
-            `[Worker] Job ${jobData.jobId} already claimed by another worker or not PENDING, skipping.`,
+            `[${CONSUMER_NAME}] Job ${jobData.jobId} already claimed by another worker or not PENDING, skipping.`,
           );
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
           continue;
@@ -64,7 +64,7 @@ async function startWorker() {
 
         try {
           // Job started
-          console.log(`[Worker] Successfully claimed Job ${job.id}`);
+          console.log(`[${CONSUMER_NAME}] Successfully claimed Job ${job.id}`);
 
           // Heartbeat every 10 seconds
           heartbeatInterval = setInterval(async () => {
@@ -77,7 +77,7 @@ async function startWorker() {
           }, 10000);
 
           // Simulate long-running work
-          console.log("[Worker] Processing...");
+          console.log("[${CONSUMER_NAME}] Processing...");
           await sleep(30000);
 
           // Job finished successfully
@@ -86,9 +86,9 @@ async function startWorker() {
           // Tell Redis we're done
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
 
-          console.log(`[Worker] Job ${messageId} completed.`);
+          console.log(`[${CONSUMER_NAME}] Job ${messageId} completed.`);
         } catch (error) {
-          console.error("[Worker] Job failed:", error);
+          console.error("[${CONSUMER_NAME}] Job failed:", error);
 
           await jobRepository.updateStatus(job.id, JobStatus.FAILED);
         } finally {
@@ -98,7 +98,7 @@ async function startWorker() {
         }
       }
     } catch (error) {
-      console.error("[Worker] Stream error:", error);
+      console.error("[${CONSUMER_NAME}] Stream error:", error);
     }
   }
 }
