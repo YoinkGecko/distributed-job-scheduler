@@ -10,7 +10,7 @@ const CONSUMER_NAME =  process.env.CONSUMER_NAME!;
 const jobRepository = new JobRepository();
 
 async function startRecoveryWorker() {
-  console.log("[${CONSUMER_NAME}] Started");
+  console.log(`[${CONSUMER_NAME}] Started`);
 
   while (true) {
     try {
