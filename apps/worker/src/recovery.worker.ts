@@ -5,12 +5,12 @@ import { isHeartbeatStale } from "./utility/utilityFunction.js";
 
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";
-const CONSUMER_NAME = "recovery-worker";
+const CONSUMER_NAME =  process.env.CONSUMER_NAME!;
 
 const jobRepository = new JobRepository();
 
 async function startRecoveryWorker() {
-  console.log("[Recovery Worker] Started");
+  console.log("[${CONSUMER_NAME}] Started");
 
   while (true) {
     try {
@@ -36,7 +36,7 @@ async function startRecoveryWorker() {
         // FIX 1: Safeguard against malformed stream payloads without a jobId
         if (!jobData.jobId) {
           console.log(
-            `[Recovery Worker] Missing jobId in message ${messageId}`,
+            `[${CONSUMER_NAME}] Missing jobId in message ${messageId}`,
           );
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
           continue;
@@ -51,7 +51,7 @@ async function startRecoveryWorker() {
         }
 
         if (!isHeartbeatStale(job, 30000)) {
-          console.log(`[Recovery Worker] Job ${job.id} is healthy`);
+          console.log(`[${CONSUMER_NAME}] Job ${job.id} is healthy`);
           continue;
         }
 
@@ -61,21 +61,21 @@ async function startRecoveryWorker() {
         ) {
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
           console.log(
-            `[Recovery Worker] Job ${job.id} is already ${job.status}. ACKing and skipping.`,
+            `[${CONSUMER_NAME}] Job ${job.id} is already ${job.status}. ACKing and skipping.`,
           );
           continue;
         }
 
         // FIX 3: Log current retry status and use >= to prevent overshoot beyond maxRetries
         console.log(
-          `[Recovery Worker] Job ${job.id} - RetryCount: ${job.retryCount}, MaxRetries: ${job.maxRetries}`,
+          `[${CONSUMER_NAME}] Job ${job.id} - RetryCount: ${job.retryCount}, MaxRetries: ${job.maxRetries}`,
         );
 
         if (job.retryCount >= job.maxRetries) {
           await jobRepository.updateStatus(job.id, JobStatus.DEAD);
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
 
-          console.log(`[Recovery Worker] Job ${job.id} moved to DEAD`);
+          console.log(`[${CONSUMER_NAME}] Job ${job.id} moved to DEAD`);
           continue;
         }
 
@@ -86,11 +86,11 @@ async function startRecoveryWorker() {
         await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
         await redis.xadd(STREAM_KEY, "*", "jobId", job.id);
 
-        console.log(`[Recovery Worker] Requeued Job ${job.id}`);
+        console.log(`[${CONSUMER_NAME}] Requeued Job ${job.id}`);
       }
     } catch (err) {
       // FIX 4: Protect loop from unhandled crashes
-      console.error("[Recovery Worker] Error processing recovery loop:", err);
+      console.error("[${CONSUMER_NAME}] Error processing recovery loop:", err);
     }
 
     console.log("\n");
