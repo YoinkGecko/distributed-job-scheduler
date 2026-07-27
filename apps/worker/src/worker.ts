@@ -77,7 +77,7 @@ async function startWorker() {
           }, 10000);
 
           // Simulate long-running work
-          console.log("[${CONSUMER_NAME}] Processing...");
+          console.log(`[${CONSUMER_NAME}] Processing...`);
           await sleep(30000);
 
           // Job finished successfully
@@ -88,7 +88,7 @@ async function startWorker() {
 
           console.log(`[${CONSUMER_NAME}] Job ${messageId} completed.`);
         } catch (error) {
-          console.error("[${CONSUMER_NAME}] Job failed:", error);
+          console.error(`[${CONSUMER_NAME}] Job failed:`, error);
 
           await jobRepository.updateStatus(job.id, JobStatus.FAILED);
         } finally {
@@ -98,7 +98,7 @@ async function startWorker() {
         }
       }
     } catch (error) {
-      console.error("[${CONSUMER_NAME}] Stream error:", error);
+      console.error(`[${CONSUMER_NAME}] Stream error:`, error);
     }
   }
 }
