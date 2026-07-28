@@ -14,7 +14,9 @@ CREATE TABLE jobs (
   assigned_worker TEXT,
   heartbeat_at TIMESTAMPTZ,
   lock_expires_at TIMESTAMPTZ,
-  last_error TEXT
+  last_error TEXT,
+  workflow_id UUID NULL REFERENCES workflows(id) ON DELETE CASCADE,
+  dependency_policy dependency_policy NOT NULL DEFAULT 'ALL'
 );
 
 
@@ -60,17 +62,6 @@ CREATE TYPE dependency_policy AS ENUM (
     'ALL',
     'ANY'
 );
-
-
-ALTER TABLE jobs
-ADD COLUMN workflow_id UUID NULL
-REFERENCES workflows(id)
-ON DELETE CASCADE;
-
-ALTER TABLE jobs
-ADD COLUMN dependency_policy dependency_policy NOT NULL DEFAULT 'ALL';
-
-
 --================================================================================================================================================
 --================================================================================================================================================
 
@@ -102,6 +93,4 @@ ON job_dependencies(parent_job_id);
 CREATE INDEX idx_job_dependencies_child
 ON job_dependencies(child_job_id);
 
-CREATE INDEX idx_job_dependencies_workflow
-ON job_dependencies(workflow_id);
 
