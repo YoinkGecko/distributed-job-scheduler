@@ -17,11 +17,12 @@ export interface Workflow {
     metadata: Record<string, unknown>;
     createdAt: Date;
     updatedAt: Date;
+    startedAt: Date;
+    completedAt: Date;
 }
 
 export interface JobDependency {
     id: string;
-    workflowId: string;
     parentJobId: string;
     childJobId: string;
     createdAt: Date;
