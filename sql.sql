@@ -29,3 +29,79 @@ CREATE TABLE outbox_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), 
     published_at TIMESTAMPTZ 
 );
+
+
+
+--================================================================================================================================================
+--================================================================================================================================================
+
+CREATE TYPE workflow_status AS ENUM (
+    'RUNNING',
+    'COMPLETED',
+    'FAILED',
+    'CANCELLED'
+);
+
+CREATE TABLE workflows (
+    id UUID PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    status workflow_status NOT NULL DEFAULT 'RUNNING',
+    metadata JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+--================================================================================================================================================
+--================================================================================================================================================
+
+CREATE TYPE dependency_policy AS ENUM (
+    'ALL',
+    'ANY'
+);
+
+
+ALTER TABLE jobs
+ADD COLUMN workflow_id UUID
+REFERENCES workflows(id)
+ON DELETE CASCADE;
+
+ALTER TABLE jobs
+ADD COLUMN dependency_policy dependency_policy DEFAULT 'ALL';
+
+
+--================================================================================================================================================
+--================================================================================================================================================
+
+
+CREATE TABLE job_dependencies (
+    id UUID PRIMARY KEY,
+    workflow_id UUID NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+
+    parent_job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    child_job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    UNIQUE(parent_job_id, child_job_id),
+    CHECK(parent_job_id <> child_job_id)
+);
+
+
+
+--================================================================================================================================================
+--================================================================================================================================================
+
+CREATE INDEX idx_jobs_workflow
+ON jobs(workflow_id);
+
+CREATE INDEX idx_jobs_status
+ON jobs(status);
+
+CREATE INDEX idx_job_dependencies_parent
+ON job_dependencies(parent_job_id);
+
+CREATE INDEX idx_job_dependencies_child
+ON job_dependencies(child_job_id);
+
+CREATE INDEX idx_job_dependencies_workflow
+ON job_dependencies(workflow_id);
+
