@@ -6,11 +6,6 @@ export enum WorkflowStatus {
   CANCELLED = "CANCELLED",
 }
 
-export enum DependencyPolicy {
-  ALL = "ALL",
-  ANY = "ANY",
-}
-
 export interface Workflow {
     id: string;
     name: string;
@@ -22,9 +17,3 @@ export interface Workflow {
     completedAt?: Date;
 }
 
-export interface JobDependency {
-    id: string;
-    parentJobId: string;
-    childJobId: string;
-    createdAt: Date;
-}
