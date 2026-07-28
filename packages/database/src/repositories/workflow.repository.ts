@@ -1,10 +1,13 @@
-import { PoolClient } from "@scheduler/database";
+import { PoolClient, pool } from "@scheduler/database";
 import { Workflow, WorkflowStatus } from "@scheduler/types";
+import { snakeToCamel } from "@scheduler/database";
 
 export class WorkflowRepository {
-
-  async create(workflow: Workflow, client: PoolClient): Promise<Workflow> {
-    const createQuery = `INSERT INTO workflows (
+  async createWorkflow(
+    workflow: Workflow,
+    client: PoolClient,
+  ): Promise<Workflow> {
+    const insertWorkflowQuery = `INSERT INTO workflows (
         id,
         name,
         status,
@@ -17,8 +20,17 @@ export class WorkflowRepository {
         )
         RETURNING *;`;
 
-    return workflow;
-    
+    const values = [
+      workflow.id,
+      workflow.name,
+      workflow.status,
+      workflow.metadata,
+      workflow.createdAt,
+      workflow.updatedAt,
+    ];
+
+    const result = await client.query(insertWorkflowQuery, values);
+    return snakeToCamel(result.rows[0]);
   }
 
   async findById(id: string): Promise<Workflow | null> {
@@ -26,9 +38,14 @@ export class WorkflowRepository {
         FROM workflows
         WHERE id = $1;`;
 
-        return null;
-  }
+    const result = await pool.query(findByIdQuery, [id]);
 
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return snakeToCamel(result.rows[0]);
+  }
 
   async updateStatus(id: string, status: WorkflowStatus): Promise<void> {
     const updateStatusQuery = `UPDATE workflows
@@ -36,5 +53,7 @@ export class WorkflowRepository {
             status = $2,
             updated_at = NOW()
         WHERE id = $1;`;
+
+    await pool.query(updateStatusQuery, [id, status]);
   }
 }
