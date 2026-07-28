@@ -17,7 +17,9 @@ export class JobDependencyRepository {
         )
         RETURNING *;`;
 
-    return dependency;
+        const createdDependency = await client.query(createDependencyQuery,[]);
+
+        return createdDependency.rows[0];
   }
 
   async findParents(jobId: string) {
