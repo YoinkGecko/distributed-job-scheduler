@@ -1,3 +1,15 @@
+CREATE TYPE workflow_status AS ENUM (
+    'RUNNING',
+    'COMPLETED',
+    'FAILED',
+    'CANCELLED'
+);
+
+CREATE TYPE dependency_policy AS ENUM (
+    'ALL',
+    'ANY'
+);
+
 CREATE TABLE jobs (
   id UUID PRIMARY KEY,
   type TEXT NOT NULL,
@@ -32,18 +44,6 @@ CREATE TABLE outbox_events (
     published_at TIMESTAMPTZ 
 );
 
-
-
---================================================================================================================================================
---================================================================================================================================================
-
-CREATE TYPE workflow_status AS ENUM (
-    'RUNNING',
-    'COMPLETED',
-    'FAILED',
-    'CANCELLED'
-);
-
 CREATE TABLE workflows (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -55,17 +55,6 @@ CREATE TABLE workflows (
     completed_at TIMESTAMPTZ
 );
 
---================================================================================================================================================
---================================================================================================================================================
-
-CREATE TYPE dependency_policy AS ENUM (
-    'ALL',
-    'ANY'
-);
---================================================================================================================================================
---================================================================================================================================================
-
-
 CREATE TABLE job_dependencies (
     id UUID PRIMARY KEY,
     parent_job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
@@ -75,11 +64,6 @@ CREATE TABLE job_dependencies (
     UNIQUE(parent_job_id, child_job_id),
     CHECK(parent_job_id <> child_job_id)
 );
-
-
-
---================================================================================================================================================
---================================================================================================================================================
 
 CREATE INDEX idx_jobs_workflow
 ON jobs(workflow_id);
