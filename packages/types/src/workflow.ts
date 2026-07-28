@@ -15,10 +15,10 @@ export interface Workflow {
     name: string;
     status: WorkflowStatus;
     metadata: Record<string, unknown>;
-    createdAt: Date;
-    updatedAt: Date;
-    startedAt: Date;
-    completedAt: Date;
+    createdAt?: Date;
+    updatedAt?: Date;
+    startedAt?: Date;
+    completedAt?: Date;
 }
 
 export interface JobDependency {
