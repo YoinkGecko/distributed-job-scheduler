@@ -48,7 +48,9 @@ CREATE TABLE workflows (
     status workflow_status NOT NULL DEFAULT 'RUNNING',
     metadata JSONB NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ
 );
 
 --================================================================================================================================================
@@ -61,12 +63,12 @@ CREATE TYPE dependency_policy AS ENUM (
 
 
 ALTER TABLE jobs
-ADD COLUMN workflow_id UUID
+ADD COLUMN workflow_id UUID NULL
 REFERENCES workflows(id)
 ON DELETE CASCADE;
 
 ALTER TABLE jobs
-ADD COLUMN dependency_policy dependency_policy DEFAULT 'ALL';
+ADD COLUMN dependency_policy dependency_policy NOT NULL DEFAULT 'ALL';
 
 
 --================================================================================================================================================
@@ -75,8 +77,6 @@ ADD COLUMN dependency_policy dependency_policy DEFAULT 'ALL';
 
 CREATE TABLE job_dependencies (
     id UUID PRIMARY KEY,
-    workflow_id UUID NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
-
     parent_job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
     child_job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
