@@ -4,3 +4,4 @@ export * from "./outbox.js";
 export * from "./workflow.js";
 export * from "./jobDependency.js";
 export * from "./DTO/CreateWorkflowRequestDTO.js"
+export * from "./workflowExecution.js"
