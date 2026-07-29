@@ -1,4 +1,5 @@
 CREATE TYPE workflow_status AS ENUM (
+    'PENDING',
     'RUNNING',
     'COMPLETED',
     'FAILED',
