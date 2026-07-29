@@ -10,8 +10,8 @@ export class JobDependencyRepository {
     const createDependencyQuery = `
       INSERT INTO job_dependencies (
         id,
-        parent_job_id,
-        child_job_id,
+        parent_workflow_job_id,
+        child_workflow_job_id,
         created_at
       )
       VALUES (
@@ -22,8 +22,8 @@ export class JobDependencyRepository {
 
     const values = [
       dependency.id,
-      dependency.parentJobId,
-      dependency.childJobId,
+      dependency.parentWorkflowJobId,
+      dependency.childWorkflowJobId,
       dependency.createdAt,
     ];
 
@@ -32,27 +32,27 @@ export class JobDependencyRepository {
     return snakeToCamel(result.rows[0]);
   }
 
-  async findParents(jobId: string): Promise<string[]> {
+  async findParents(workflowJobId: string): Promise<string[]> {
     const findParentsQuery = `
-      SELECT parent_job_id
+      SELECT parent_workflow_job_id
       FROM job_dependencies
-      WHERE child_job_id = $1;
+      WHERE child_workflow_job_id = $1;
     `;
 
-    const result = await pool.query(findParentsQuery, [jobId]);
+    const result = await pool.query(findParentsQuery, [workflowJobId]);
 
-    return result.rows.map((row) => row.parent_job_id);
+    return result.rows.map((row) => row.parent_workflow_job_id);
   }
 
-  async findChildren(jobId: string): Promise<string[]> {
+  async findChildren(workflowJobId: string): Promise<string[]> {
     const findChildrenQuery = `
-      SELECT child_job_id
+      SELECT child_workflow_job_id
       FROM job_dependencies
-      WHERE parent_job_id = $1;
+      WHERE parent_workflow_job_id = $1;
     `;
 
-    const result = await pool.query(findChildrenQuery, [jobId]);
+    const result = await pool.query(findChildrenQuery, [workflowJobId]);
 
-    return result.rows.map((row) => row.child_job_id);
+    return result.rows.map((row) => row.child_workflow_job_id);
   }
 }

@@ -4,8 +4,8 @@ export enum DependencyPolicy {
 }
 
 export interface JobDependency {
-    id: string;
-    parentJobId: string;
-    childJobId: string;
-    createdAt: Date;
+  id: string;
+  parentWorkflowJobId: string;
+  childWorkflowJobId: string;
+  createdAt: Date;
 }
