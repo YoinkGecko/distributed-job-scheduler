@@ -11,6 +11,14 @@ CREATE TYPE dependency_policy AS ENUM (
     'ANY'
 );
 
+CREATE TYPE workflow_execution_status AS ENUM (
+    'PENDING',
+    'RUNNING',
+    'COMPLETED',
+    'FAILED',
+    'CANCELLED'
+);
+
 CREATE TABLE jobs (
   id UUID PRIMARY KEY,
   type TEXT NOT NULL,
@@ -63,6 +71,34 @@ CREATE TABLE workflow_jobs (
     UNIQUE(workflow_id, job_id)
 );
 
+
+--This represents one run of a workflow.
+CREATE TABLE workflow_executions (
+    id UUID PRIMARY KEY,
+    workflow_id UUID NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+    status workflow_execution_status NOT NULL DEFAULT 'PENDING',
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+--This represents the execution of one workflow job inside one workflow execution.
+CREATE TABLE workflow_job_executions (
+    id UUID PRIMARY KEY,
+    workflow_execution_id UUID NOT NULL REFERENCES workflow_executions(id) ON DELETE CASCADE,
+    workflow_job_id UUID NOT NULL REFERENCES workflow_jobs(id) ON DELETE CASCADE,
+    status job_status NOT NULL DEFAULT 'WAITING',
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(workflow_execution_id, workflow_job_id)
+);
+
 CREATE TABLE job_dependencies (
     id UUID PRIMARY KEY,
     parent_workflow_job_id UUID NOT NULL REFERENCES workflow_jobs(id) ON DELETE CASCADE,
@@ -87,4 +123,18 @@ ON workflow_jobs(workflow_id);
 CREATE INDEX idx_workflow_jobs_job_id
 ON workflow_jobs(job_id);
 
+CREATE INDEX idx_workflow_executions_workflow_id
+ON workflow_executions(workflow_id);
 
+CREATE INDEX idx_workflow_executions_status
+ON workflow_executions(status);
+
+
+CREATE INDEX idx_workflow_job_execution_execution
+ON workflow_job_executions(workflow_execution_id);
+
+CREATE INDEX idx_workflow_job_execution_workflow_job
+ON workflow_job_executions(workflow_job_id);
+
+CREATE INDEX idx_workflow_job_execution_status
+ON workflow_job_executions(status);
