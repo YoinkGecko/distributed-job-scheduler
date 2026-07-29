@@ -6,6 +6,15 @@ CREATE TYPE workflow_status AS ENUM (
     'CANCELLED'
 );
 
+CREATE TYPE job_status AS ENUM (
+'WAITING',
+'PENDING',
+'RUNNING',
+'COMPLETED',
+'FAILED',
+'DEAD'
+);
+
 CREATE TYPE dependency_policy AS ENUM (
     'ALL',
     'ANY'
