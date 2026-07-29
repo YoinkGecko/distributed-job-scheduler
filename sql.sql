@@ -27,7 +27,6 @@ CREATE TABLE jobs (
   heartbeat_at TIMESTAMPTZ,
   lock_expires_at TIMESTAMPTZ,
   last_error TEXT,
-  workflow_id UUID NULL REFERENCES workflows(id) ON DELETE CASCADE,
   dependency_policy dependency_policy NOT NULL DEFAULT 'ALL'
 );
 
@@ -55,14 +54,21 @@ CREATE TABLE workflows (
     completed_at TIMESTAMPTZ
 );
 
+CREATE TABLE workflow_jobs (
+    id UUID PRIMARY KEY,
+    workflow_id UUID NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+    job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(workflow_id, job_id)
+);
+
 CREATE TABLE job_dependencies (
     id UUID PRIMARY KEY,
-    parent_job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-    child_job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    parent_workflow_job_id UUID NOT NULL REFERENCES workflow_jobs(id) ON DELETE CASCADE,
+    child_workflow_job_id UUID NOT NULL REFERENCES workflow_jobs(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    UNIQUE(parent_job_id, child_job_id),
-    CHECK(parent_job_id <> child_job_id)
+    UNIQUE(parent_workflow_job_id, child_workflow_job_id),
+    CHECK(parent_workflow_job_id <> child_workflow_job_id)
 );
 
 CREATE INDEX idx_jobs_workflow
