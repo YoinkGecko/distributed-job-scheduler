@@ -17,3 +17,9 @@ export interface Workflow {
     completedAt?: Date;
 }
 
+export interface WorkflowJob {
+  id: string;
+  workflowId: string;
+  jobId: string;
+  createdAt: Date;
+}

@@ -71,16 +71,19 @@ CREATE TABLE job_dependencies (
     CHECK(parent_workflow_job_id <> child_workflow_job_id)
 );
 
-CREATE INDEX idx_jobs_workflow
-ON jobs(workflow_id);
+CREATE INDEX idx_parent_workflow_job
+ON job_dependencies(parent_workflow_job_id);
+
+CREATE INDEX idx_child_workflow_job
+ON job_dependencies(child_workflow_job_id);
 
 CREATE INDEX idx_jobs_status
 ON jobs(status);
 
-CREATE INDEX idx_job_dependencies_parent
-ON job_dependencies(parent_job_id);
+CREATE INDEX idx_workflow_jobs_workflow_id
+ON workflow_jobs(workflow_id);
 
-CREATE INDEX idx_job_dependencies_child
-ON job_dependencies(child_job_id);
+CREATE INDEX idx_workflow_jobs_job_id
+ON workflow_jobs(job_id);
 
 
