@@ -5,6 +5,7 @@ export { OutboxRepository } from "./repositories/outbox.repository.js";
 export { OutboxPublisherRepository } from "./repositories/OutboxPublisher.repository.js";
 export {WorkflowRepository} from "./repositories/workflow.repository.js";
 export {JobDependencyRepository} from "./repositories/jobDependency.repository.js";
+export {WorkflowJobRepository} from "./repositories/workflowJob.repository.js"
 export * from "./utility/snakeToCamel.js";
 
 
