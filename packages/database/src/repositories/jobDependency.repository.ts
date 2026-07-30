@@ -1,6 +1,7 @@
 import { PoolClient, snakeToCamel } from "@scheduler/database";
 import { pool } from "../../pool.js";
 import { JobDependency } from "@scheduler/types";
+import {WorkflowJob} from "@scheduler/types";
 
 export class JobDependencyRepository {
   async createDependency(
@@ -55,4 +56,23 @@ export class JobDependencyRepository {
 
     return result.rows.map((row) => row.child_workflow_job_id);
   }
+
+  async findRootWorkflowJobs(
+    workflowId: string,
+): Promise<WorkflowJob[]> {
+    const query = `
+        SELECT wj.*
+        FROM workflow_jobs wj
+        WHERE wj.workflow_id = $1
+        AND NOT EXISTS (
+            SELECT 1
+            FROM job_dependencies jd
+            WHERE jd.child_workflow_job_id = wj.id
+        );
+    `;
+
+    const result = await pool.query(query, [workflowId]);
+
+    return result.rows.map((row) => snakeToCamel(row));
+}
 }
