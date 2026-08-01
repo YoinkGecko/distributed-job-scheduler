@@ -6,3 +6,4 @@ export * from "./jobDependency.js";
 export * from "./DTO/CreateWorkflowRequestDTO.js"
 export * from "./workflowExecution.js"
 export * from "./WorkflowJobExecution.js"
+export * from "./workflowJob.js"
