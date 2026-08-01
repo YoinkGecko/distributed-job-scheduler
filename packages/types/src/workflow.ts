@@ -1,25 +1,27 @@
+export enum ScheduleType {
+  ONCE = 'ONCE',
+  INTERVAL = 'INTERVAL',
+  CRON = 'CRON',
+}
+
 export enum WorkflowStatus {
-  PENDING = "PENDING",
-  RUNNING = "RUNNING",
-  COMPLETED = "COMPLETED",
-  FAILED = "FAILED",
-  CANCELLED = "CANCELLED",
+  ACTIVE = 'ACTIVE',
+  PAUSED = 'PAUSED',
+  ARCHIVED = 'ARCHIVED',
 }
 
+// Interface
 export interface Workflow {
-    id: string;
-    name: string;
-    status: WorkflowStatus;
-    metadata: Record<string, unknown>;
-    createdAt?: Date;
-    updatedAt?: Date;
-    startedAt?: Date;
-    completedAt?: Date;
-}
-
-export interface WorkflowJob {
   id: string;
-  workflowId: string;
-  jobId: string;
+  name: string;
+  description?: string | null;
+  status: WorkflowStatus;
+  startAt?: Date | null;
+  endAt?: Date | null;
+  scheduleType: ScheduleType;
+  scheduleExpression: string;
+  timezone: string;
+  metadata: Record<string, any>; // Mapped from JSONB
   createdAt: Date;
+  updatedAt: Date;
 }
