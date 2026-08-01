@@ -1,5 +1,6 @@
 import express from "express";
 import jobRoutes from "./routes/job.routes.js";
+import workflowRoutes from "./routes/workflow.routes.js";
 
 const app = express();
 
@@ -13,5 +14,6 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/jobs", jobRoutes);
+app.use("/workflow", workflowRoutes);
 
 export default app;
