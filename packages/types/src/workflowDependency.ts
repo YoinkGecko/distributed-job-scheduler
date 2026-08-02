@@ -4,3 +4,8 @@ export interface WorkflowJobDependency {
     childWorkflowJobId: string;
     createdAt: Date;
 }
+
+export interface CreateWorkflowDependencyInput{
+    parentWorkflowJobId: string;
+    childWorkflowJobId:string;
+}
