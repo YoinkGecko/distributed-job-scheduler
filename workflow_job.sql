@@ -16,3 +16,19 @@ CREATE TABLE workflow_jobs (
 );
 
 CREATE INDEX idx_workflow_jobs_workflow_id ON workflow_jobs(workflow_id);
+
+
+CREATE TABLE workflow_job_dependencies (
+    id UUID PRIMARY KEY,
+    parent_workflow_job_id UUID NOT NULL REFERENCES workflow_jobs(id) ON DELETE CASCADE,
+    child_workflow_job_id UUID NOT NULL REFERENCES workflow_jobs(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(parent_workflow_job_id, child_workflow_job_id),
+    CHECK (parent_workflow_job_id <> child_workflow_job_id)
+);
+
+CREATE INDEX idx_workflow_job_dependencies_parent
+ON workflow_job_dependencies(parent_workflow_job_id);
+
+CREATE INDEX idx_workflow_job_dependencies_child
+ON workflow_job_dependencies(child_workflow_job_id);
