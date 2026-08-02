@@ -60,7 +60,8 @@ export class WorkflowJobRepository {
     workflowJobIds: string[],
     ): Promise<WorkflowJob[]>{
       const query = `SELECT * FROM workflow_jobs WHERE id = ANY($1);`;
-      const result = await pool.query("query",workflowJobIds);
-      return result.rows[0];
+      const result = await pool.query(query,[workflowJobIds]);
+      console.log(result.rows);
+      return snakeToCamel(result.rows);
   }
 }
