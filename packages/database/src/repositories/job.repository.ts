@@ -115,6 +115,18 @@ export class JobRepository {
     return snakeToCamel(result.rows[0]);
   }
 
+  async findByIds(jobId: string[]): Promise<string[] | null> {
+    const findJobQuery = `
+      SELECT id FROM jobs
+      WHERE id = ANY($1);`;
+
+    const result = await pool.query(findJobQuery, [jobId]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return snakeToCamel(result.rows);
+  }
+
   async updateStatus(jobId: string, status: JobStatus): Promise<void> {
     const updateJobStatusQuery = `
       UPDATE jobs

@@ -45,8 +45,7 @@ export class WorkflowRepository {
     return snakeToCamel(result.rows[0]);
   }
 
-  async findWorkflow(){}
-  async findWorkflowAndStatus(workflowId:String){
+  async findById(workflowId:String){
     const result = await pool.query("SELECT * from workflows where id = $1",[workflowId]);
     return snakeToCamel(result.rows[0]);
   }
