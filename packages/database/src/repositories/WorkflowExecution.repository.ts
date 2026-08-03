@@ -3,23 +3,6 @@ import {WorkflowExecution,WorkflowExecutionStatus} from "@scheduler/types"
 import {snakeToCamel} from "../utility/snakeToCamel";
 
 
-// export class WorkflowExecutionRepository {
-
-//     async create(
-//         workflowExecution: WorkflowExecution,
-//     ): Promise<WorkflowExecution> {}
-
-//     async findById(
-//         workflowExecutionId: string,
-//     ): Promise<WorkflowExecution | null> {}
-
-//     async updateStatus(
-//         workflowExecutionId: string,
-//         status: WorkflowExecutionStatus,
-//     ): Promise<void> {}
-
-// }
-
 export class WorkflowExecutionRepository {
   
   async create(workflowExecution: WorkflowExecution,): Promise<WorkflowExecution> {
