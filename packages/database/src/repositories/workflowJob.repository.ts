@@ -31,7 +31,8 @@ export class WorkflowJobRepository {
       .map((_, index) => {
         const offset = index * 4;
         return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`;
-      }).join(", ");
+      })
+      .join(", ");
 
     const values = workflowJobs.flatMap((workflowJob) => [
       workflowJob.id,
@@ -56,11 +57,38 @@ export class WorkflowJobRepository {
     return result.rows.map((row) => snakeToCamel(row));
   }
 
-  async findByIds(
-    workflowJobIds: string[],
-    ): Promise<WorkflowJob[]>{
-      const query = `SELECT * FROM workflow_jobs WHERE id = ANY($1);`;
-      const result = await pool.query(query,[workflowJobIds]);
-      return snakeToCamel(result.rows);
+  async findByIds(workflowJobIds: string[]): Promise<WorkflowJob[]> {
+    const query = `SELECT * FROM workflow_jobs WHERE id = ANY($1);`;
+    const result = await pool.query(query, [workflowJobIds]);
+    return snakeToCamel(result.rows);
+  }
+
+  async findByWorkflowId(workflowId: string): Promise<WorkflowJob[]> {
+    const query = `
+    SELECT *
+    FROM workflow_jobs
+    WHERE workflow_id = $1;
+  `;
+
+    const result = await pool.query(query, [workflowId]);
+
+    return result.rows.map((row) => snakeToCamel(row));
+  }
+
+  async findRootWorkflowJobs(workflowId: string): Promise<WorkflowJob[]> {
+    const query = `
+    SELECT *
+    FROM workflow_jobs wj
+    WHERE wj.workflow_id = $1
+    AND NOT EXISTS (
+      SELECT 1
+      FROM workflow_job_dependencies d
+      WHERE d.child_workflow_job_id = wj.id
+    );
+  `;
+
+    const result = await pool.query(query, [workflowId]);
+
+    return result.rows.map((row) => snakeToCamel(row));
   }
 }

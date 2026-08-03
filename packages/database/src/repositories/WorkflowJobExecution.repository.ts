@@ -1,16 +1,16 @@
-import {pool} from "../../pool";
-import {WorkflowJobExecution,JobStatus} from "@scheduler/types"
-import {snakeToCamel} from "../utility/snakeToCamel";
+import { pool } from "../../pool.js";
+import { WorkflowJobExecution, JobStatus } from "@scheduler/types";
+import { snakeToCamel } from "../utility/snakeToCamel.js";
 
 export class WorkflowJobExecutionRepository {
+  async create(
+    workflowJobExecutions: WorkflowJobExecution[],
+  ): Promise<WorkflowJobExecution[]> {
+    const placeholders = workflowJobExecutions
+      .map((_, index) => {
+        const offset = index * 18;
 
-async create(workflowJobExecutions: WorkflowJobExecution[],): Promise<WorkflowJobExecution[]> {
-
-  const placeholders = workflowJobExecutions
-    .map((_, index) => {
-      const offset = index * 18;
-
-      return `(
+        return `(
         $${offset + 1},
         $${offset + 2},
         $${offset + 3},
@@ -28,31 +28,31 @@ async create(workflowJobExecutions: WorkflowJobExecution[],): Promise<WorkflowJo
         $${offset + 15},
         $${offset + 16}
       )`;
-    })
-    .join(", ");
+      })
+      .join(", ");
 
-  const values = workflowJobExecutions.flatMap((execution) => [
-    execution.id,
-    execution.workflowExecutionId,
-    execution.workflowJobId,
-    execution.type,
-    execution.payload,
-    execution.status,
-    execution.priority,
-    execution.scheduledAt,
-    execution.createdAt,
-    execution.updatedAt,
-    execution.startedAt,
-    execution.completedAt,
-    execution.retryCount,
-    execution.maxRetries,
-    execution.assignedWorker,
-    execution.heartbeatAt,
-    execution.lockExpiresAt,
-    execution.lastError,
-  ]);
+    const values = workflowJobExecutions.flatMap((execution) => [
+      execution.id,
+      execution.workflowExecutionId,
+      execution.workflowJobId,
+      execution.type,
+      execution.payload,
+      execution.status,
+      execution.priority,
+      execution.scheduledAt,
+      execution.createdAt,
+      execution.updatedAt,
+      execution.startedAt,
+      execution.completedAt,
+      execution.retryCount,
+      execution.maxRetries,
+      execution.assignedWorker,
+      execution.heartbeatAt,
+      execution.lockExpiresAt,
+      execution.lastError,
+    ]);
 
-  const createWorkflowJobExecutionQuery = `
+    const createWorkflowJobExecutionQuery = `
     INSERT INTO workflow_job_executions (
       id,
       workflow_execution_id,
@@ -78,36 +78,36 @@ async create(workflowJobExecutions: WorkflowJobExecution[],): Promise<WorkflowJo
     RETURNING *;
   `;
 
-  const result = await pool.query(
-    createWorkflowJobExecutionQuery,
-    values,
-  );
+    const result = await pool.query(createWorkflowJobExecutionQuery, values);
 
-  return result.rows.map((row) => snakeToCamel(row));
+    return result.rows.map((row) => snakeToCamel(row));
   }
 
-async findById(workflowJobExecutionId: string,): Promise<WorkflowJobExecution | null> {
-
-  const findWorkflowJobExecutionQuery = `
+  async findById(
+    workflowJobExecutionId: string,
+  ): Promise<WorkflowJobExecution | null> {
+    const findWorkflowJobExecutionQuery = `
     SELECT *
     FROM workflow_job_executions
     WHERE id = $1;
   `;
 
-  const result = await pool.query(
-    findWorkflowJobExecutionQuery,
-    [workflowJobExecutionId],
-  );
+    const result = await pool.query(findWorkflowJobExecutionQuery, [
+      workflowJobExecutionId,
+    ]);
 
-  if (result.rows.length === 0) {
-    return null;
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return snakeToCamel(result.rows[0]);
   }
 
-  return snakeToCamel(result.rows[0]);
-}
-
-async updateStatus(workflowJobExecutionId: string,status: JobStatus,): Promise<void> {
-  const updateStatusQuery = `
+  async updateStatus(
+    workflowJobExecutionId: string,
+    status: JobStatus,
+  ): Promise<void> {
+    const updateStatusQuery = `
     UPDATE workflow_job_executions
     SET
       status = $1,
@@ -130,10 +130,46 @@ async updateStatus(workflowJobExecutionId: string,status: JobStatus,): Promise<v
     WHERE id = $2;
   `;
 
-  await pool.query(updateStatusQuery, [
-    status,
-    workflowJobExecutionId,
-  ]);
-}
+    await pool.query(updateStatusQuery, [status, workflowJobExecutionId]);
+  }
 
+  async updateStatusByWorkflowJobIds(
+    workflowExecutionId: string,
+    workflowJobIds: string[],
+    status: JobStatus,
+  ): Promise<void> {
+    if (!workflowJobIds || workflowJobIds.length === 0) return;
+
+    const query = `
+    UPDATE workflow_job_executions
+    SET
+      status = $1,
+      updated_at = NOW()
+    WHERE workflow_execution_id = $2
+    AND workflow_job_id = ANY($3);
+  `;
+
+    await pool.query(query, [status, workflowExecutionId, workflowJobIds]);
+  }
+
+  async findByWorkflowJobIds(
+    workflowExecutionId: string,
+    workflowJobIds: string[],
+  ): Promise<WorkflowJobExecution[]> {
+    if (!workflowJobIds || workflowJobIds.length === 0) return [];
+
+    const query = `
+    SELECT *
+    FROM workflow_job_executions
+    WHERE workflow_execution_id = $1
+    AND workflow_job_id = ANY($2);
+  `;
+
+    const result = await pool.query(query, [
+      workflowExecutionId,
+      workflowJobIds,
+    ]);
+
+    return result.rows.map((row) => snakeToCamel(row));
+  }
 }

@@ -1,4 +1,4 @@
-import {PoolClient} from "pg";
+import { PoolClient } from "pg";
 import { Job, JobStatus } from "@scheduler/types";
 import { pool } from "../../pool.js";
 import { snakeToCamel } from "@scheduler/database";
@@ -125,6 +125,18 @@ export class JobRepository {
       return null;
     }
     return snakeToCamel(result.rows);
+  }
+
+  async findByJobsIds(jobIds: string[]): Promise<Job[]> {
+    const query = `
+    SELECT *
+    FROM jobs
+    WHERE id = ANY($1);
+  `;
+
+    const result = await pool.query(query, [jobIds]);
+
+    return result.rows.map((row) => snakeToCamel(row));
   }
 
   async updateStatus(jobId: string, status: JobStatus): Promise<void> {

@@ -1,6 +1,6 @@
 import { pool } from "../../pool.js";
 import {WorkflowExecution,WorkflowExecutionStatus} from "@scheduler/types"
-import {snakeToCamel} from "../utility/snakeToCamel";
+import {snakeToCamel} from "../utility/snakeToCamel.js";
 
 
 export class WorkflowExecutionRepository {
