@@ -1,15 +1,30 @@
 import { pool } from "../../pool.js";
-import { PoolClient, snakeToCamel } from "@scheduler/database";
+import {WorkflowExecution,WorkflowExecutionStatus} from "@scheduler/types"
+import {snakeToCamel} from "../utility/snakeToCamel";
 
-import { WorkflowExecution, WorkflowExecutionStatus } from "@scheduler/types";
+
+// export class WorkflowExecutionRepository {
+
+//     async create(
+//         workflowExecution: WorkflowExecution,
+//     ): Promise<WorkflowExecution> {}
+
+//     async findById(
+//         workflowExecutionId: string,
+//     ): Promise<WorkflowExecution | null> {}
+
+//     async updateStatus(
+//         workflowExecutionId: string,
+//         status: WorkflowExecutionStatus,
+//     ): Promise<void> {}
+
+// }
 
 export class WorkflowExecutionRepository {
+  
+  async create(workflowExecution: WorkflowExecution,): Promise<WorkflowExecution> {
     
-  async createExecution(
-    execution: WorkflowExecution,
-    client: PoolClient,
-  ): Promise<WorkflowExecution> {
-    const createExecutionQuery = `
+    const createWorkflowExecutionQuery = `
       INSERT INTO workflow_executions (
         id,
         workflow_id,
@@ -26,86 +41,61 @@ export class WorkflowExecutionRepository {
     `;
 
     const values = [
-      execution.id,
-      execution.workflowId,
-      execution.status,
-      execution.startedAt,
-      execution.completedAt,
-      execution.createdAt,
-      execution.updatedAt,
+      workflowExecution.id,
+      workflowExecution.workflowId,
+      workflowExecution.status,
+      workflowExecution.startedAt,
+      workflowExecution.completedAt,
+      workflowExecution.createdAt,
+      workflowExecution.updatedAt,
     ];
 
-    const result = await client.query(createExecutionQuery, values);
+    const result = await pool.query(
+      createWorkflowExecutionQuery,
+      values,
+    );
+
+    console.log("Workflow Execution created.");
 
     return snakeToCamel(result.rows[0]);
   }
 
-  async findById(executionId: string): Promise<WorkflowExecution | null> {
-    const findByIdQuery = `
-      SELECT *
-      FROM workflow_executions
-      WHERE id = $1;
-    `;
+  async findById(workflowExecutionId: string,): Promise<WorkflowExecution | null> {
+  const findWorkflowExecutionQuery = `
+    SELECT *
+    FROM workflow_executions
+    WHERE id = $1;
+  `;
 
-    const result = await pool.query(findByIdQuery, [executionId]);
+  const result = await pool.query(
+    findWorkflowExecutionQuery,
+    [workflowExecutionId],
+  );
 
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    return snakeToCamel(result.rows[0]);
+  if (result.rows.length === 0) {
+    return null;
   }
 
-  async updateStatus(
-    executionId: string,
-    status: WorkflowExecutionStatus,
-    client: PoolClient,
-  ): Promise<WorkflowExecution> {
-    const updateStatusQuery = `
-      UPDATE workflow_executions
-      SET
-        status = $1,
-        updated_at = NOW()
-      WHERE id = $2
-      RETURNING *;
-    `;
-
-    const result = await client.query(updateStatusQuery, [status, executionId]);
-
-    return snakeToCamel(result.rows[0]);
+  return snakeToCamel(result.rows[0]);
   }
 
-  async completeExecution(
-    executionId: string,
-    client: PoolClient,
-  ): Promise<WorkflowExecution> {
-    const completeExecutionQuery = `
-      UPDATE workflow_executions
-      SET
-        status = 'COMPLETED',
-        completed_at = NOW(),
-        updated_at = NOW()
-      WHERE id = $1
-      RETURNING *;
-    `;
+  async updateStatus(workflowExecutionId: string,status: WorkflowExecutionStatus,): Promise<void> {
+  const updateStatusQuery = `
+    UPDATE workflow_executions
+    SET
+      status = $1,
+      updated_at = NOW(),
+      completed_at = CASE
+        WHEN $1 IN ('COMPLETED', 'FAILED', 'CANCELLED')
+        THEN NOW()
+        ELSE completed_at
+      END
+    WHERE id = $2;
+  `;
 
-    const result = await client.query(completeExecutionQuery, [executionId]);
-
-    return snakeToCamel(result.rows[0]);
-  }
-
-  async findRunningExecutions(
-    workflowId: string,
-  ): Promise<WorkflowExecution[]> {
-    const findRunningExecutionsQuery = `
-      SELECT *
-      FROM workflow_executions
-      WHERE workflow_id = $1
-        AND status = 'RUNNING';
-    `;
-
-    const result = await pool.query(findRunningExecutionsQuery, [workflowId]);
-
-    return result.rows.map((row) => snakeToCamel(row));
-  }
+  await pool.query(updateStatusQuery, [
+    status,
+    workflowExecutionId,
+  ]);
+}
 }
