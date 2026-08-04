@@ -41,25 +41,33 @@ export class RunWorkflowService {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      console.log("checkWorkflow\n\n");
       await this.checkWorkflow(workflowId,client);
+      console.log("loadWorkflowJobs\n\n");
       const workflowJobs = await this.loadWorkflowJobs(workflowId,client);
+      console.log("loadJobs\n\n");
       const jobs = await this.loadJobs(workflowJobs,client);
+      console.log("createWorkflowExecution\n\n");
       const workflowExecution = await this.createWorkflowExecution(workflowId,client);
+      console.log("buildWorkflowJobExecutions\n\n");
       const workflowJobExecutions = this.buildWorkflowJobExecutions(
         workflowExecution.id,
         workflowJobs,
         jobs,
         client
       );
-
+      console.log("saveWorkflowJobExecutions\n\n");
       const savedWorkflowJobExecutions = await this.saveWorkflowJobExecutions(
         workflowJobExecutions,
         client
       );
-
+        console.log("findRootWorkflowJobs\n\n");
       const rootJobs = await this.findRootWorkflowJobs(workflowId,client);
+      console.log("makeRootJobsPending\n\n");
       await this.makeRootJobsPending(workflowExecution.id, rootJobs,client);
+      console.log("publishRootJobs\n\n");
       await this.publishRootJobs(workflowExecution.id,client);
+      console.log("query\n\n");
       await client.query("COMMIT");
       return workflowExecution;
     } catch(error) {
@@ -178,6 +186,7 @@ export class RunWorkflowService {
   ): Promise<WorkflowJobExecution[]> {
     return await this.workflowJobExecutionRepository.create(
       workflowJobExecutions,
+      client,
     );
   }
 

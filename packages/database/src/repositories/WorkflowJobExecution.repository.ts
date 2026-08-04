@@ -6,7 +6,9 @@ import {PoolClient} from "@scheduler/database";
 export class WorkflowJobExecutionRepository {
   async create(
     workflowJobExecutions: WorkflowJobExecution[],
+    client?:PoolClient
   ): Promise<WorkflowJobExecution[]> {
+    const executer = client || pool;
     const placeholders = workflowJobExecutions
       .map((_, index) => {
         const offset = index * 18;
@@ -27,7 +29,9 @@ export class WorkflowJobExecutionRepository {
         $${offset + 13},
         $${offset + 14},
         $${offset + 15},
-        $${offset + 16}
+        $${offset + 16},
+        $${offset + 17},
+        $${offset + 18}
       )`;
       })
       .join(", ");
@@ -79,7 +83,7 @@ export class WorkflowJobExecutionRepository {
     RETURNING *;
   `;
 
-    const result = await pool.query(createWorkflowJobExecutionQuery, values);
+    const result = await executer.query(createWorkflowJobExecutionQuery, values);
 
     return result.rows.map((row) => snakeToCamel(row));
   }
