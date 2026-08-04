@@ -40,6 +40,7 @@ export class RunWorkflowService {
   async runWorkflow(workflowId: string): Promise<any> {
     const client = await pool.connect();
     try {
+      await client.query("BEGIN");
       await this.checkWorkflow(workflowId,client);
       const workflowJobs = await this.loadWorkflowJobs(workflowId,client);
       const jobs = await this.loadJobs(workflowJobs,client);
@@ -59,9 +60,11 @@ export class RunWorkflowService {
       const rootJobs = await this.findRootWorkflowJobs(workflowId,client);
       await this.makeRootJobsPending(workflowExecution.id, rootJobs,client);
       await this.publishRootJobs(workflowExecution.id,client);
+      await client.query("COMMIT");
       return workflowExecution;
-    } catch {
+    } catch(error) {
       await client.query("ROLLBACK");
+      throw error;
     } finally {
       client.release();
     }
