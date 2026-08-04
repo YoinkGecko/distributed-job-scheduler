@@ -37,7 +37,7 @@ export class RunWorkflowService {
     private readonly outboxRepository: OutboxRepository,
   ) {}
 
-  async runWorkflow(workflowId: string): Promise<WorkflowExecution> {
+  async runWorkflow(workflowId: string): Promise<any> {
     const client = await pool.connect();
     try {
       await this.checkWorkflow(workflowId,client);
