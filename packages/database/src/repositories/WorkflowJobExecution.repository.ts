@@ -1,6 +1,7 @@
 import { pool } from "../../pool.js";
 import { WorkflowJobExecution, JobStatus } from "@scheduler/types";
 import { snakeToCamel } from "../utility/snakeToCamel.js";
+import {PoolClient} from "@scheduler/database";
 
 export class WorkflowJobExecutionRepository {
   async create(
@@ -137,7 +138,9 @@ export class WorkflowJobExecutionRepository {
     workflowExecutionId: string,
     workflowJobIds: string[],
     status: JobStatus,
+    client?:PoolClient
   ): Promise<void> {
+    const executor = client || pool;
     if (!workflowJobIds || workflowJobIds.length === 0) return;
 
     const query = `
@@ -149,7 +152,7 @@ export class WorkflowJobExecutionRepository {
     AND workflow_job_id = ANY($3);
   `;
 
-    await pool.query(query, [status, workflowExecutionId, workflowJobIds]);
+    await executor.query(query, [status, workflowExecutionId, workflowJobIds]);
   }
 
   async findByWorkflowJobIds(

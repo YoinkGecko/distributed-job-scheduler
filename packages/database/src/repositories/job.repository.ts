@@ -127,14 +127,15 @@ export class JobRepository {
     return snakeToCamel(result.rows);
   }
 
-  async findByJobsIds(jobIds: string[]): Promise<Job[]> {
+  async findByJobsIds(jobIds: string[],client?:PoolClient): Promise<Job[]> {
+    const executor = client || pool;
     const query = `
     SELECT *
     FROM jobs
     WHERE id = ANY($1);
   `;
 
-    const result = await pool.query(query, [jobIds]);
+    const result = await executor.query(query, [jobIds]);
 
     return result.rows.map((row) => snakeToCamel(row));
   }

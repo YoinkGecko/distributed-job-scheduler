@@ -63,19 +63,21 @@ export class WorkflowJobRepository {
     return snakeToCamel(result.rows);
   }
 
-  async findByWorkflowId(workflowId: string): Promise<WorkflowJob[]> {
+  async findByWorkflowId(workflowId: string,client?:PoolClient): Promise<WorkflowJob[]> {
+    const executor = client || pool;
     const query = `
     SELECT *
     FROM workflow_jobs
     WHERE workflow_id = $1;
   `;
 
-    const result = await pool.query(query, [workflowId]);
+    const result = await executor.query(query, [workflowId]);
 
     return result.rows.map((row) => snakeToCamel(row));
   }
 
-  async findRootWorkflowJobs(workflowId: string): Promise<WorkflowJob[]> {
+  async findRootWorkflowJobs(workflowId: string,client?:PoolClient): Promise<WorkflowJob[]> {
+    const executor = client || pool;
     const query = `
     SELECT *
     FROM workflow_jobs wj
@@ -87,7 +89,7 @@ export class WorkflowJobRepository {
     );
   `;
 
-    const result = await pool.query(query, [workflowId]);
+    const result = await executor.query(query, [workflowId]);
 
     return result.rows.map((row) => snakeToCamel(row));
   }

@@ -1,12 +1,13 @@
 import { pool } from "../../pool.js";
 import {WorkflowExecution,WorkflowExecutionStatus} from "@scheduler/types"
 import {snakeToCamel} from "../utility/snakeToCamel.js";
+import {PoolClient} from "@scheduler/database";
 
 
 export class WorkflowExecutionRepository {
   
-  async create(workflowExecution: WorkflowExecution,): Promise<WorkflowExecution> {
-    
+  async create(workflowExecution: WorkflowExecution,client?:PoolClient): Promise<WorkflowExecution> {
+    const executor = client || pool;
     const createWorkflowExecutionQuery = `
       INSERT INTO workflow_executions (
         id,
@@ -33,7 +34,7 @@ export class WorkflowExecutionRepository {
       workflowExecution.updatedAt,
     ];
 
-    const result = await pool.query(
+    const result = await executor.query(
       createWorkflowExecutionQuery,
       values,
     );

@@ -1,6 +1,6 @@
 import { pool } from "../../pool.js";
 import { Workflow } from "@scheduler/types";
-import { snakeToCamel } from "@scheduler/database";
+import { snakeToCamel,PoolClient } from "@scheduler/database";
 
 export class WorkflowRepository {
   async create(workflow: Workflow): Promise<Workflow> {
@@ -45,8 +45,9 @@ export class WorkflowRepository {
     return snakeToCamel(result.rows[0]);
   }
 
-  async findById(workflowId:String){
-    const result = await pool.query("SELECT * from workflows where id = $1",[workflowId]);
+  async findById(workflowId:String,client?: PoolClient){
+    const executor = client || pool;
+    const result = await executor.query("SELECT * from workflows where id = $1",[workflowId]);
     return snakeToCamel(result.rows[0]);
   }
 }
