@@ -36,41 +36,64 @@ export class RunWorkflowService {
     private readonly outboxService: OutboxService,
   ) {}
 
-  async runWorkflow(workflowId: string): Promise<any> {
+  async runWorkflow(workflowId: string): Promise<WorkflowExecution> {
     const client = await pool.connect();
+
     try {
       await client.query("BEGIN");
-      console.log("checkWorkflow\n\n");
+
+      console.log("checkWorkflow");
       await this.checkWorkflow(workflowId, client);
-      console.log("loadWorkflowJobs\n\n");
+
+      console.log("loadWorkflowJobs");
       const workflowJobs = await this.loadWorkflowJobs(workflowId, client);
-      console.log("loadJobs\n\n");
+
+      console.log("loadJobs");
       const jobs = await this.loadJobs(workflowJobs, client);
-      console.log("createWorkflowExecution\n\n");
+
+      console.log("createWorkflowExecution");
       const workflowExecution = await this.createWorkflowExecution(
         workflowId,
         client,
       );
-      console.log("buildWorkflowJobExecutions\n\n");
+
+      console.log("buildWorkflowJobExecutions");
       const workflowJobExecutions = this.buildWorkflowJobExecutions(
         workflowExecution.id,
         workflowJobs,
         jobs,
-        client,
       );
-      console.log("saveWorkflowJobExecutions\n\n");
+
+      console.log("saveWorkflowJobExecutions");
       const savedWorkflowJobExecutions = await this.saveWorkflowJobExecutions(
         workflowJobExecutions,
         client,
       );
-      console.log("findRootWorkflowJobs\n\n");
-      const rootJobs = await this.findRootWorkflowJobs(workflowId, client);
-      console.log("makeRootJobsPending\n\n");
-      await this.makeRootJobsPending(workflowExecution.id, rootJobs, client);
-      console.log("publishRootJobs\n\n");
-      await this.publishRootJobs(workflowExecution.id, client);
-      console.log("query\n\n");
+
+      console.log("findRootWorkflowJobs");
+      const rootWorkflowJobs = await this.findRootWorkflowJobs(
+        workflowId,
+        client,
+      );
+
+      console.log("makeRootJobsPending");
+      await this.makeRootJobsPending(
+        workflowExecution.id,
+        rootWorkflowJobs,
+        client,
+      );
+
+      console.log("findRootWorkflowJobExecutions");
+      const rootWorkflowJobExecutions = this.findRootWorkflowJobExecutions(
+        savedWorkflowJobExecutions,
+        rootWorkflowJobs,
+      );
+
+      console.log("publishRootJobs");
+      await this.publishRootJobs(rootWorkflowJobExecutions, client);
+
       await client.query("COMMIT");
+
       return workflowExecution;
     } catch (error) {
       await client.query("ROLLBACK");
@@ -159,7 +182,6 @@ export class RunWorkflowService {
     workflowExecutionId: string,
     workflowJobs: WorkflowJob[],
     jobs: Job[],
-    client: PoolClient,
   ): WorkflowJobExecution[] {
     const now = new Date();
 
@@ -236,6 +258,17 @@ export class RunWorkflowService {
       workflowJobIds,
       JobStatus.PENDING,
       client,
+    );
+  }
+
+  private findRootWorkflowJobExecutions(
+    workflowJobExecutions: WorkflowJobExecution[],
+    rootWorkflowJobs: WorkflowJob[],
+  ): WorkflowJobExecution[] {
+    const rootWorkflowJobIds = new Set(rootWorkflowJobs.map((job) => job.id));
+
+    return workflowJobExecutions.filter((execution) =>
+      rootWorkflowJobIds.has(execution.workflowJobId),
     );
   }
 

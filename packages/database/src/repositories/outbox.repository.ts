@@ -1,12 +1,14 @@
-import { OutboxEvent, JobCreatedEventPayload } from "@scheduler/types";
-import { PoolClient} from "pg";
-import {pool} from "@scheduler/database";
+import { OutboxEvent } from "@scheduler/types";
+import { PoolClient } from "pg";
+import { pool } from "@scheduler/database";
 
 export class OutboxRepository {
+  async createEvent<T>(
+    event: OutboxEvent<T>,
+    client?: PoolClient,
+  ): Promise<void> {
+    const executer = client ?? pool;
 
-  async createEvent( event: OutboxEvent<JobCreatedEventPayload>, client?: PoolClient): Promise<void> {
-    const executer = client||pool;
-    
     const insertEventQuery = `
       INSERT INTO outbox_events (
         id,
@@ -25,10 +27,9 @@ export class OutboxRepository {
       event.aggregateType,
       event.aggregateId,
       event.eventType,
-      event.payload, 
+      event.payload,
     ];
 
     await executer.query(insertEventQuery, values);
-
   }
 }
