@@ -15,13 +15,13 @@ import {
 } from "@scheduler/types";
 import {
   JobRepository,
-  OutboxRepository,
   WorkflowRepository,
   WorkflowJobRepository,
   WorkflowDependencyRepository,
   WorkflowExecutionRepository,
   WorkflowJobExecutionRepository,
 } from "@scheduler/database";
+import { OutboxService } from "./outbox.service.js";
 
 export class RunWorkflowService {
   constructor(
@@ -33,8 +33,7 @@ export class RunWorkflowService {
     private readonly workflowJobExecutionRepository: WorkflowJobExecutionRepository,
 
     private readonly workflowDependencyRepository: WorkflowDependencyRepository,
-
-    private readonly outboxRepository: OutboxRepository,
+    private readonly outboxService: OutboxService,
   ) {}
 
   async runWorkflow(workflowId: string): Promise<any> {
@@ -42,35 +41,38 @@ export class RunWorkflowService {
     try {
       await client.query("BEGIN");
       console.log("checkWorkflow\n\n");
-      await this.checkWorkflow(workflowId,client);
+      await this.checkWorkflow(workflowId, client);
       console.log("loadWorkflowJobs\n\n");
-      const workflowJobs = await this.loadWorkflowJobs(workflowId,client);
+      const workflowJobs = await this.loadWorkflowJobs(workflowId, client);
       console.log("loadJobs\n\n");
-      const jobs = await this.loadJobs(workflowJobs,client);
+      const jobs = await this.loadJobs(workflowJobs, client);
       console.log("createWorkflowExecution\n\n");
-      const workflowExecution = await this.createWorkflowExecution(workflowId,client);
+      const workflowExecution = await this.createWorkflowExecution(
+        workflowId,
+        client,
+      );
       console.log("buildWorkflowJobExecutions\n\n");
       const workflowJobExecutions = this.buildWorkflowJobExecutions(
         workflowExecution.id,
         workflowJobs,
         jobs,
-        client
+        client,
       );
       console.log("saveWorkflowJobExecutions\n\n");
       const savedWorkflowJobExecutions = await this.saveWorkflowJobExecutions(
         workflowJobExecutions,
-        client
+        client,
       );
-        console.log("findRootWorkflowJobs\n\n");
-      const rootJobs = await this.findRootWorkflowJobs(workflowId,client);
+      console.log("findRootWorkflowJobs\n\n");
+      const rootJobs = await this.findRootWorkflowJobs(workflowId, client);
       console.log("makeRootJobsPending\n\n");
-      await this.makeRootJobsPending(workflowExecution.id, rootJobs,client);
+      await this.makeRootJobsPending(workflowExecution.id, rootJobs, client);
       console.log("publishRootJobs\n\n");
-      await this.publishRootJobs(workflowExecution.id,client);
+      await this.publishRootJobs(workflowExecution.id, client);
       console.log("query\n\n");
       await client.query("COMMIT");
       return workflowExecution;
-    } catch(error) {
+    } catch (error) {
       await client.query("ROLLBACK");
       throw error;
     } finally {
@@ -79,8 +81,11 @@ export class RunWorkflowService {
   }
 
   // 1. checkWorkflow
-  private async checkWorkflow(workflowId: string,client:PoolClient): Promise<void> {
-    const workflow = await this.workflowRepository.findById(workflowId,client);
+  private async checkWorkflow(
+    workflowId: string,
+    client: PoolClient,
+  ): Promise<void> {
+    const workflow = await this.workflowRepository.findById(workflowId, client);
 
     if (!workflow) {
       throw new Error("Workflow not found.");
@@ -92,9 +97,14 @@ export class RunWorkflowService {
   }
 
   // 2.loadWorkflowJobs
-  private async loadWorkflowJobs(workflowId: string,client:PoolClient): Promise<WorkflowJob[]> {
-    const workflowJobs =
-      await this.workflowJobRepository.findByWorkflowId(workflowId,client);
+  private async loadWorkflowJobs(
+    workflowId: string,
+    client: PoolClient,
+  ): Promise<WorkflowJob[]> {
+    const workflowJobs = await this.workflowJobRepository.findByWorkflowId(
+      workflowId,
+      client,
+    );
 
     if (workflowJobs.length === 0) {
       throw new Error("Workflow does not contain any jobs.");
@@ -104,10 +114,13 @@ export class RunWorkflowService {
   }
 
   // 3. loadJobs (original jobs)
-  private async loadJobs(workflowJobs: WorkflowJob[],client:PoolClient): Promise<Job[]> {
+  private async loadJobs(
+    workflowJobs: WorkflowJob[],
+    client: PoolClient,
+  ): Promise<Job[]> {
     const jobIds = workflowJobs.map((workflowJob) => workflowJob.jobId);
 
-    const jobs = await this.jobRepository.findByJobsIds(jobIds,client); //to get all details of jobs
+    const jobs = await this.jobRepository.findByJobsIds(jobIds, client); //to get all details of jobs
 
     if (jobs.length !== jobIds.length) {
       throw new Error(
@@ -121,7 +134,7 @@ export class RunWorkflowService {
   // 4. createWorkflowExecution
   private async createWorkflowExecution(
     workflowId: string,
-    client:PoolClient
+    client: PoolClient,
   ): Promise<WorkflowExecution> {
     const now = new Date();
 
@@ -135,7 +148,10 @@ export class RunWorkflowService {
       updatedAt: now,
     };
 
-    return await this.workflowExecutionRepository.create(workflowExecution,client);
+    return await this.workflowExecutionRepository.create(
+      workflowExecution,
+      client,
+    );
   }
 
   // 5. buildWorkflowJobExecutions
@@ -143,7 +159,7 @@ export class RunWorkflowService {
     workflowExecutionId: string,
     workflowJobs: WorkflowJob[],
     jobs: Job[],
-    client:PoolClient
+    client: PoolClient,
   ): WorkflowJobExecution[] {
     const now = new Date();
 
@@ -182,7 +198,7 @@ export class RunWorkflowService {
   // 6. saveWorkflowJobExecutions
   private async saveWorkflowJobExecutions(
     workflowJobExecutions: WorkflowJobExecution[],
-    client:PoolClient
+    client: PoolClient,
   ): Promise<WorkflowJobExecution[]> {
     return await this.workflowJobExecutionRepository.create(
       workflowJobExecutions,
@@ -193,10 +209,12 @@ export class RunWorkflowService {
   // 7. findRootWorkflowJobs
   private async findRootWorkflowJobs(
     workflowId: string,
-    client:PoolClient
+    client: PoolClient,
   ): Promise<WorkflowJob[]> {
-    const rootJobs =
-      await this.workflowJobRepository.findRootWorkflowJobs(workflowId,client);
+    const rootJobs = await this.workflowJobRepository.findRootWorkflowJobs(
+      workflowId,
+      client,
+    );
 
     if (rootJobs.length === 0) {
       throw new Error("Workflow contains no root jobs.");
@@ -209,7 +227,7 @@ export class RunWorkflowService {
   private async makeRootJobsPending(
     workflowExecutionId: string,
     rootWorkflowJobs: WorkflowJob[],
-    client:PoolClient
+    client: PoolClient,
   ): Promise<void> {
     const workflowJobIds = rootWorkflowJobs.map((job) => job.id);
 
@@ -217,7 +235,7 @@ export class RunWorkflowService {
       workflowExecutionId,
       workflowJobIds,
       JobStatus.PENDING,
-      client
+      client,
     );
   }
 
@@ -227,23 +245,12 @@ export class RunWorkflowService {
     client: PoolClient,
   ): Promise<void> {
     for (const workflowJobExecution of workflowJobExecutions) {
-      const event: OutboxEvent<JobCreatedEventPayload> = {
-        id: crypto.randomUUID(),
-
-        aggregateType: AggregateType.WORKFLOW_JOB_EXECUTION,
-
-        aggregateId: workflowJobExecution.id,
-
-        eventType: OutboxEventType.WORKFLOW_JOB_READY,
-
-        payload: {
-          jobId: workflowJobExecution.id,
-          type: "",
-          priority: 1,
+      await this.outboxService.createWorkflowJobExecutionEvent(
+        {
+          workflowJobExecutionId: workflowJobExecution.id,
         },
-      };
-
-      await this.outboxRepository.createEvent(event, client);
+        client,
+      );
     }
   }
 }

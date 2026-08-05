@@ -5,7 +5,7 @@ import {pool} from "@scheduler/database";
 export class OutboxRepository {
 
   async createEvent( event: OutboxEvent<JobCreatedEventPayload>, client?: PoolClient): Promise<void> {
-    const executer = pool||client;
+    const executer = client||pool;
     
     const insertEventQuery = `
       INSERT INTO outbox_events (

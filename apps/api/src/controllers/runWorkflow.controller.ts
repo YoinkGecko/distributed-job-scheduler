@@ -9,14 +9,16 @@ import {
   WorkflowJobExecutionRepository,
 } from "@scheduler/database";
 import { RunWorkflowService } from "../services/runWorkflow.service.js";
+import {OutboxService} from "../services/outbox.service.js";
 
 const jobRepository = new JobRepository();
-const outboxRepository = new OutboxRepository();
 const workflowRepository = new WorkflowRepository();
+const outboxRepository = new OutboxRepository()
 const workflowJobRepository = new WorkflowJobRepository();
 const workflowDependencyRepository = new WorkflowDependencyRepository();
 const workflowExecutionRepository = new WorkflowExecutionRepository();
 const workflowJobExecutionRepository = new WorkflowJobExecutionRepository();
+const outboxService = new OutboxService(outboxRepository);
 
 const runWorkflowService = new RunWorkflowService(
   workflowRepository,
@@ -25,7 +27,7 @@ const runWorkflowService = new RunWorkflowService(
   workflowExecutionRepository,
   workflowJobExecutionRepository,
   workflowDependencyRepository,
-  outboxRepository,
+  outboxService,
 );
 
 export async function runWorkflow(req: Request, res: Response) {
