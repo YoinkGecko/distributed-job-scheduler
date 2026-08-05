@@ -1,6 +1,10 @@
 import redis from "@scheduler/redis";
 import { OutboxPublisherRepository } from "@scheduler/database";
-import { OutboxEvent, JobCreatedEventPayload } from "@scheduler/types";
+import {
+  OutboxEvent,
+  JobCreatedEventPayload,
+  OutboxEventType,
+} from "@scheduler/types";
 import { sleep } from "./utils/sleep";
 
 const STREAM_KEY = "jobs-stream";
@@ -34,13 +38,38 @@ export class OutboxPublisher {
     }
   }
 
-  private async publishEvent(
-    event: OutboxEvent<JobCreatedEventPayload>,
-  ): Promise<void> {
-    await redis.xadd(STREAM_KEY, "*", "jobId", event.payload.jobId);
+  private async publishEvent(event: OutboxEvent<any>): Promise<void> {
+    switch (event.eventType) {
+      case OutboxEventType.JOB_CREATED:
+        await redis.xadd(
+          STREAM_KEY,
+          "*",
+          "entityType",
+          "JOB",
+          "entityId",
+          event.payload.jobId,
+        );
+
+        break;
+
+      case OutboxEventType.WORKFLOW_JOB_EXECUTION_CREATED:
+        await redis.xadd(
+          STREAM_KEY,
+          "*",
+          "entityType",
+          "WORKFLOW_JOB_EXECUTION",
+          "entityId",
+          event.payload.workflowJobExecutionId,
+        );
+
+        break;
+
+      default:
+        throw new Error(`Unknown event type: ${event.eventType}`);
+    }
 
     await this.repository.markPublished(event.id);
 
-    console.log(`Published Event=${event.id} Job=${event.payload.jobId}`);
+    console.log(`Published Event=${event.id}`);
   }
 }
