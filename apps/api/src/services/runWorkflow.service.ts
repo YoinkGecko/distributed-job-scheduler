@@ -89,7 +89,7 @@ export class RunWorkflowService {
         rootWorkflowJobs,
       );
 
-      console.log("publishRootJobs");
+      console.log("publishRootJobs\n\n\n\n");
       await this.publishRootJobs(rootWorkflowJobExecutions, client);
 
       await client.query("COMMIT");
