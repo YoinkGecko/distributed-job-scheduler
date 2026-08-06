@@ -111,35 +111,21 @@ export class WorkflowJobExecutionRepository {
     return snakeToCamel(result.rows[0]);
   }
 
-  async updateStatus(
-    workflowJobExecutionId: string,
-    status: JobStatus,
-  ): Promise<void> {
-    const updateStatusQuery = `
+async updateStatus(
+  workflowJobExecutionId: string,
+  status: JobStatus,
+): Promise<void> {
+  const query = `
     UPDATE workflow_job_executions
     SET
       status = $1,
-
       updated_at = NOW(),
-
-      started_at = CASE
-        WHEN $1 = 'RUNNING'
-          AND started_at IS NULL
-        THEN NOW()
-        ELSE started_at
-      END,
-
-      completed_at = CASE
-        WHEN $1 IN ('COMPLETED', 'FAILED', 'DEAD')
-        THEN NOW()
-        ELSE completed_at
-      END
-
+      completed_at = NOW()
     WHERE id = $2;
   `;
 
-    await pool.query(updateStatusQuery, [status, workflowJobExecutionId]);
-  }
+  await pool.query(query, [status, workflowJobExecutionId]);
+}
 
   async updateStatusByWorkflowJobIds(
     workflowExecutionId: string,
