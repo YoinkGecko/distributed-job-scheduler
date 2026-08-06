@@ -1,9 +1,9 @@
 import { OutboxEvent, JobCreatedEventPayload } from "@scheduler/types";
 
-import { pool } from "@scheduler/database";
+import { pool,snakeToCamel } from "@scheduler/database";
 
 export class OutboxPublisherRepository {
-  async findUnpublishedEvents( limit: number,): Promise<OutboxEvent<JobCreatedEventPayload>[]> {
+  async findUnpublishedEvents( limit: number,): Promise<OutboxEvent<unknown>[]> {
     const query = `
         SELECT *
         FROM outbox_events
@@ -14,7 +14,7 @@ export class OutboxPublisherRepository {
 
     const result = await pool.query(query, [limit]);
 
-    return result.rows as OutboxEvent<JobCreatedEventPayload>[];
+    return snakeToCamel(result.rows) as OutboxEvent<unknown>[];
   }
 
   async markPublished(eventId: string): Promise<void> {
