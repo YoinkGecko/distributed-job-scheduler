@@ -1,22 +1,29 @@
 import redis from "@scheduler/redis";
-import { JobRepository } from "@scheduler/database";
-import { JobStatus } from "@scheduler/types";
+import {
+  JobRepository,
+  WorkflowJobExecutionRepository,
+} from "@scheduler/database";
+import { JobStatus,AggregateType} from "@scheduler/types";
 
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";
-const CONSUMER_NAME = process.env.CONSUMER_NAME!; //enter CONSUMER_NAME=worker-1 pnpm --filter @scheduler/worker dev in termianl
+const CONSUMER_NAME = process.env.CONSUMER_NAME!;
 
 const jobRepository = new JobRepository();
+const workflowJobExecutionRepository = new WorkflowJobExecutionRepository();
 
 async function startWorker() {
   try {
     await redis.xgroup("CREATE", STREAM_KEY, GROUP_NAME, "0", "MKSTREAM");
+
     console.log(`[${CONSUMER_NAME}] Consumer Group "${GROUP_NAME}" created.`);
   } catch (error: any) {
     if (error.message.includes("BUSYGROUP")) {
-      console.log(`[${CONSUMER_NAME}] Consumer Group "${GROUP_NAME}" already exists.`);
+      console.log(
+        `[${CONSUMER_NAME}] Consumer Group "${GROUP_NAME}" already exists.`,
+      );
     } else {
-      console.error("[${CONSUMER_NAME}] Error creating consumer group:", error);
+      console.error(error);
     }
   }
 
@@ -48,49 +55,53 @@ async function startWorker() {
           jobData[fields[i]] = fields[i + 1];
         }
 
-        console.log(`\n[${CONSUMER_NAME}] Received Job ${messageId}`, jobData);
+        const entityType = jobData.entityType;
+        const entityId = jobData.entityId;
 
-        const job = await jobRepository.claimJob(jobData.jobId, CONSUMER_NAME);
+        console.log(`\n[${CONSUMER_NAME}] Received ${entityType}`, entityId);
 
-        if (!job) {
+        const execution = await claimExecution(entityType, entityId);
+
+        if (!execution) {
           console.log(
-            `[${CONSUMER_NAME}] Job ${jobData.jobId} already claimed by another worker or not PENDING, skipping.`,
+            `[${CONSUMER_NAME}] ${entityType} ${entityId} already claimed or not PENDING.`,
           );
+
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
+
           continue;
         }
 
         let heartbeatInterval: NodeJS.Timeout | undefined;
 
         try {
-          // Job started
-          console.log(`[${CONSUMER_NAME}] Successfully claimed Job ${job.id}`);
+          console.log(
+            `[${CONSUMER_NAME}] Successfully claimed ${entityType} ${execution.id}`,
+          );
 
-          // Heartbeat every 10 seconds
           heartbeatInterval = setInterval(async () => {
             try {
-              await jobRepository.updateHeartbeat(job.id);
+              await updateHeartbeat(entityType, execution.id);
+
               console.log("[Heartbeat] Updated");
             } catch (error) {
               console.error("[Heartbeat] Failed:", error);
             }
           }, 10000);
 
-          // Simulate long-running work
           console.log(`[${CONSUMER_NAME}] Processing...`);
+
           await sleep(30000);
 
-          // Job finished successfully
-          await jobRepository.updateStatus(job.id, JobStatus.COMPLETED);
+          await updateStatus(entityType, execution.id, JobStatus.COMPLETED);
 
-          // Tell Redis we're done
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
 
-          console.log(`[${CONSUMER_NAME}] Job ${messageId} completed.`);
+          console.log(`[${CONSUMER_NAME}] ${entityType} completed.`);
         } catch (error) {
-          console.error(`[${CONSUMER_NAME}] Job failed:`, error);
+          console.error(error);
 
-          await jobRepository.updateStatus(job.id, JobStatus.FAILED);
+          await updateStatus(entityType, execution.id, JobStatus.FAILED);
         } finally {
           if (heartbeatInterval) {
             clearInterval(heartbeatInterval);
@@ -109,6 +120,54 @@ function sleep(ms: number): Promise<void> {
 
 startWorker();
 
+async function claimExecution(entityType: string, entityId: string) {
+  switch (entityType) {
+    case AggregateType.JOB:
+      return await jobRepository.claimJob(entityId, CONSUMER_NAME);
+
+    case AggregateType.WORKFLOW_JOB_EXECUTION:
+      return await workflowJobExecutionRepository.claimJob(
+        entityId,
+        CONSUMER_NAME,
+      );
+
+    default:
+      throw new Error(`Unknown entity type: ${entityType}`);
+  }
+}
+
+async function updateHeartbeat(entityType: string, entityId: string) {
+  switch (entityType) {
+    case AggregateType.JOB:
+      return await jobRepository.updateHeartbeat(entityId);
+
+    case AggregateType.WORKFLOW_JOB_EXECUTION:
+      return await workflowJobExecutionRepository.updateHeartbeat(entityId);
+
+    default:
+      throw new Error(`Unknown entity type: ${entityType}`);
+  }
+}
+
+async function updateStatus(
+  entityType: string,
+  entityId: string,
+  status: JobStatus,
+) {
+  switch (entityType) {
+    case AggregateType.JOB:
+      return await jobRepository.updateStatus(entityId, status);
+
+    case AggregateType.WORKFLOW_JOB_EXECUTION:
+      return await workflowJobExecutionRepository.updateStatus(
+        entityId,
+        status,
+      );
+
+    default:
+      throw new Error(`Unknown entity type: ${entityType}`);
+  }
+}
 // console.log("\n\nStream Name:",response[0][0]); //stream name
 // console.log("Enteries",response[0][1][0]); //entries
 // console.log(response[0][1][0][0]); //job id

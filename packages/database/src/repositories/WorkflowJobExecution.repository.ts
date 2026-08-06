@@ -1,12 +1,12 @@
 import { pool } from "../../pool.js";
 import { WorkflowJobExecution, JobStatus } from "@scheduler/types";
 import { snakeToCamel } from "../utility/snakeToCamel.js";
-import {PoolClient} from "@scheduler/database";
+import { PoolClient } from "@scheduler/database";
 
 export class WorkflowJobExecutionRepository {
   async create(
     workflowJobExecutions: WorkflowJobExecution[],
-    client?:PoolClient
+    client?: PoolClient,
   ): Promise<WorkflowJobExecution[]> {
     const executer = client || pool;
     const placeholders = workflowJobExecutions
@@ -83,7 +83,10 @@ export class WorkflowJobExecutionRepository {
     RETURNING *;
   `;
 
-    const result = await executer.query(createWorkflowJobExecutionQuery, values);
+    const result = await executer.query(
+      createWorkflowJobExecutionQuery,
+      values,
+    );
 
     return result.rows.map((row) => snakeToCamel(row));
   }
@@ -142,7 +145,7 @@ export class WorkflowJobExecutionRepository {
     workflowExecutionId: string,
     workflowJobIds: string[],
     status: JobStatus,
-    client?:PoolClient
+    client?: PoolClient,
   ): Promise<void> {
     const executor = client || pool;
     if (!workflowJobIds || workflowJobIds.length === 0) return;
@@ -178,5 +181,52 @@ export class WorkflowJobExecutionRepository {
     ]);
 
     return result.rows.map((row) => snakeToCamel(row));
+  }
+
+  async claimJob(
+    workflowJobExecutionId: string,
+    workerName: string,
+  ): Promise<WorkflowJobExecution | null> {
+    const claimJobQuery = `
+    UPDATE workflow_job_executions
+    SET
+      status = 'RUNNING',
+      assigned_worker = $2,
+      heartbeat_at = NOW(),
+      lock_expires_at = NOW() + INTERVAL '30 seconds',
+      updated_at = NOW(),
+      started_at = CASE
+        WHEN started_at IS NULL
+        THEN NOW()
+        ELSE started_at
+      END
+    WHERE
+      id = $1
+      AND status = 'PENDING'
+    RETURNING *;
+  `;
+
+    const result = await pool.query(claimJobQuery, [
+      workflowJobExecutionId,
+      workerName,
+    ]);
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return snakeToCamel(result.rows[0]);
+  }
+
+  async updateHeartbeat(workflowJobExecutionId: string): Promise<void> {
+    const updateHeartbeatQuery = `
+    UPDATE workflow_job_executions
+    SET
+      heartbeat_at = NOW(),
+      lock_expires_at = NOW() + INTERVAL '30 seconds'
+    WHERE id = $1;
+  `;
+
+    await pool.query(updateHeartbeatQuery, [workflowJobExecutionId]);
   }
 }
