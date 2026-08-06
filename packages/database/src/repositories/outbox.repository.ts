@@ -29,7 +29,7 @@ export class OutboxRepository {
       event.eventType,
       event.payload,
     ];
-
+    console.log("Outbox repo: Created Event: ",event);
     await executer.query(insertEventQuery, values);
   }
 }
