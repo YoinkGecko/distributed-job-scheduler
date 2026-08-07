@@ -3,11 +3,9 @@ import { snakeToCamel } from "@scheduler/database";
 import { WorkflowJobDependency } from "@scheduler/types";
 
 export class WorkflowDependencyRepository {
-
   async createDependencies(
     dependencies: WorkflowJobDependency[],
   ): Promise<WorkflowJobDependency[]> {
-
     const placeholders = dependencies
       .map((_, index) => {
         const offset = index * 4;
@@ -46,7 +44,6 @@ export class WorkflowDependencyRepository {
       childWorkflowJobId: string;
     }[],
   ): Promise<WorkflowJobDependency[]> {
-
     if (dependencies.length === 0) {
       return [];
     }
@@ -77,5 +74,40 @@ export class WorkflowDependencyRepository {
     const result = await pool.query(query, values);
 
     return result.rows.map((row) => snakeToCamel(row));
+  }
+
+  async findChildren(parentWorkflowJobId: string): Promise<string[]> {
+    const query = `
+    SELECT child_workflow_job_id
+    FROM workflow_job_dependencies
+    WHERE parent_workflow_job_id = $1;
+  `;
+
+    const result = await pool.query(query, [parentWorkflowJobId]);
+
+    return snakeToCamel(result.rows.map((row) => row.child_workflow_job_id));
+  }
+
+  async areAllParentsCompleted(
+    workflowExecutionId: string,
+    childWorkflowJobId: string,
+  ): Promise<boolean> {
+    const query = `
+    SELECT COUNT(*) AS remaining
+    FROM workflow_job_dependencies d
+    JOIN workflow_job_executions e
+      ON e.workflow_job_id = d.parent_workflow_job_id
+    WHERE
+      d.child_workflow_job_id = $1
+      AND e.workflow_execution_id = $2
+      AND e.status != 'COMPLETED';
+  `;
+
+    const result = await pool.query(query, [
+      childWorkflowJobId,
+      workflowExecutionId,
+    ]);
+
+    return Number(result.rows[0].remaining) === 0;
   }
 }
