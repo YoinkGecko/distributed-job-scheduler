@@ -130,18 +130,15 @@ export class WorkflowDependencyService {
     completedWorkflowJobId: string,
     client: PoolClient,
   ): Promise<void> {
-    // 1. Find all immediate children
     const childWorkflowJobIds =
       await this.workflowDependencyRepository.findChildren(
         completedWorkflowJobId,
       );
 
-    // No children -> nothing to do
     if (childWorkflowJobIds.length === 0) {
       return;
     }
 
-    // 2. Check every child
     for (const childWorkflowJobId of childWorkflowJobIds) {
       const ready =
         await this.workflowJobExecutionRepository.areAllParentsCompleted(
@@ -157,6 +154,7 @@ export class WorkflowDependencyService {
         await this.workflowJobExecutionRepository.markPending(
           workflowExecutionId,
           childWorkflowJobId,
+          client,
         );
 
       if (!childExecution) {

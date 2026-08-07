@@ -242,6 +242,7 @@ export class WorkflowJobExecutionRepository {
   async markPending(
     workflowExecutionId: string,
     workflowJobId: string,
+    client: PoolClient
   ): Promise<WorkflowJobExecution | null> {
     const query = `
     UPDATE workflow_job_executions
@@ -255,7 +256,7 @@ export class WorkflowJobExecutionRepository {
     RETURNING *;
   `;
 
-    const result = await pool.query(query, [
+    const result = await client.query(query, [
       workflowExecutionId,
       workflowJobId,
     ]);
