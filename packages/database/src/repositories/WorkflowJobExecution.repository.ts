@@ -111,11 +111,11 @@ export class WorkflowJobExecutionRepository {
     return snakeToCamel(result.rows[0]);
   }
 
-async updateStatus(
-  workflowJobExecutionId: string,
-  status: JobStatus,
-): Promise<void> {
-  const query = `
+  async updateStatus(
+    workflowJobExecutionId: string,
+    status: JobStatus,
+  ): Promise<void> {
+    const query = `
     UPDATE workflow_job_executions
     SET
       status = $1,
@@ -124,8 +124,8 @@ async updateStatus(
     WHERE id = $2;
   `;
 
-  await pool.query(query, [status, workflowJobExecutionId]);
-}
+    await pool.query(query, [status, workflowJobExecutionId]);
+  }
 
   async updateStatusByWorkflowJobIds(
     workflowExecutionId: string,
@@ -214,5 +214,56 @@ async updateStatus(
   `;
 
     await pool.query(updateHeartbeatQuery, [workflowJobExecutionId]);
+  }
+
+  async areAllParentsCompleted(
+    workflowExecutionId: string,
+    childWorkflowJobId: string,
+  ): Promise<boolean> {
+    const query = `
+    SELECT COUNT(*) AS remaining
+    FROM workflow_job_dependencies d
+    JOIN workflow_job_executions e
+      ON e.workflow_job_id = d.parent_workflow_job_id
+    WHERE
+      d.child_workflow_job_id = $1
+      AND e.workflow_execution_id = $2
+      AND e.status != 'COMPLETED';
+  `;
+
+    const result = await pool.query(query, [
+      childWorkflowJobId,
+      workflowExecutionId,
+    ]);
+
+    return Number(result.rows[0].remaining) === 0;
+  }
+
+  async markPending(
+    workflowExecutionId: string,
+    workflowJobId: string,
+  ): Promise<WorkflowJobExecution | null> {
+    const query = `
+    UPDATE workflow_job_executions
+    SET
+      status = 'PENDING',
+      updated_at = NOW()
+    WHERE
+      workflow_execution_id = $1
+      AND workflow_job_id = $2
+      AND status = 'WAITING'
+    RETURNING *;
+  `;
+
+    const result = await pool.query(query, [
+      workflowExecutionId,
+      workflowJobId,
+    ]);
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return snakeToCamel(result.rows[0]);
   }
 }
