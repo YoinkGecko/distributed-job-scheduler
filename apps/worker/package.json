@@ -12,6 +12,7 @@
     "@scheduler/redis": "workspace:*",
     "@scheduler/types": "workspace:*",
     "@scheduler/database": "workspace:*",
+    "@scheduler/api": "workspace:*",
     "dotenv": "^17.4.2"
   },
   "devDependencies": {

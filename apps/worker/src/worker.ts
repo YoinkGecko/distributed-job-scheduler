@@ -3,7 +3,8 @@ import {
   JobRepository,
   WorkflowJobExecutionRepository,
 } from "@scheduler/database";
-import { JobStatus,AggregateType} from "@scheduler/types";
+import { JobStatus, AggregateType } from "@scheduler/types";
+import {workflowExecutionService} from "@scheduler/api";
 
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";
@@ -94,6 +95,13 @@ async function startWorker() {
           await sleep(30000);
 
           await updateStatus(entityType, execution.id, JobStatus.COMPLETED);
+
+          if (entityType === AggregateType.WORKFLOW_JOB_EXECUTION) {
+            await workflowExecutionService.releaseChildJobs(
+              execution.workflowExecutionId,
+              execution.workflowJobId,
+            );
+          }
 
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
 
