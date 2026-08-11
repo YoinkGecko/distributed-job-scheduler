@@ -1,5 +1,5 @@
 import { pool } from "../../pool.js";
-import { snakeToCamel } from "@scheduler/database";
+import { snakeToCamel,PoolClient } from "@scheduler/database";
 import { WorkflowJobDependency } from "@scheduler/types";
 
 export class WorkflowDependencyRepository {
@@ -76,14 +76,15 @@ export class WorkflowDependencyRepository {
     return result.rows.map((row) => snakeToCamel(row));
   }
 
-  async findChildren(parentWorkflowJobId: string): Promise<string[]> {
+  async findChildren(parentWorkflowJobId: string, client?: PoolClient,): Promise<string[]> {
+    const executor = client ?? pool;
     const query = `
     SELECT child_workflow_job_id
     FROM workflow_job_dependencies
     WHERE parent_workflow_job_id = $1;
   `;
 
-    const result = await pool.query(query, [parentWorkflowJobId]);
+    const result = await executor.query(query, [parentWorkflowJobId]);
 
     return snakeToCamel(result.rows.map((row) => row.child_workflow_job_id));
   }

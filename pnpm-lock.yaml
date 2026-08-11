@@ -54,6 +54,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@scheduler/api':
+        specifier: workspace:*
+        version: link:../api
       '@scheduler/database':
         specifier: workspace:*
         version: link:../../packages/database

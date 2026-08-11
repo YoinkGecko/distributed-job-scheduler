@@ -125,48 +125,59 @@ export class WorkflowDependencyService {
     }));
   }
 
-  private async releaseChildJobs(
-    workflowExecutionId: string,
-    completedWorkflowJobId: string,
-    client: PoolClient,
-  ): Promise<void> {
-    const childWorkflowJobIds =
-      await this.workflowDependencyRepository.findChildren(
-        completedWorkflowJobId,
-      );
+async releaseChildJobs(
+  workflowExecutionId: string,
+  completedWorkflowJobId: string,
+  client: PoolClient,
+): Promise<void> {
 
-    if (childWorkflowJobIds.length === 0) {
-      return;
-    }
+  // 1. Find all immediate children
+  const childWorkflowJobIds =
+    await this.workflowDependencyRepository.findChildren(
+      completedWorkflowJobId,
+      client,
+    );
 
-    for (const childWorkflowJobId of childWorkflowJobIds) {
-      const ready =
-        await this.workflowJobExecutionRepository.areAllParentsCompleted(
-          workflowExecutionId,
-          childWorkflowJobId,
-        );
+  // No children
+  if (childWorkflowJobIds.length === 0) {
+    return;
+  }
 
-      if (!ready) {
-        continue;
-      }
+  // 2. Check every child
+  for (const childWorkflowJobId of childWorkflowJobIds) {
 
-      const childExecution =
-        await this.workflowJobExecutionRepository.markPending(
+    const ready =
+      await this.workflowJobExecutionRepository
+        .areAllParentsCompleted(
           workflowExecutionId,
           childWorkflowJobId,
           client,
         );
 
-      if (!childExecution) {
-        continue;
-      }
+    if (!ready) {
+      continue;
+    }
 
-      await this.outboxService.createWorkflowJobExecutionEvent(
-        {
-          workflowJobExecutionId: childExecution.id,
-        },
+    // 3. WAITING -> PENDING
+    const childExecution =
+      await this.workflowJobExecutionRepository.markPending(
+        workflowExecutionId,
+        childWorkflowJobId,
         client,
       );
+
+    // Another worker may have already released it
+    if (!childExecution) {
+      continue;
     }
+
+    // 4. Create outbox event in SAME transaction
+    await this.outboxService.createWorkflowJobExecutionEvent(
+      {
+        workflowJobExecutionId: childExecution.id,
+      },
+      client,
+    );
   }
+}
 }

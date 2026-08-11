@@ -219,7 +219,9 @@ export class WorkflowJobExecutionRepository {
   async areAllParentsCompleted(
     workflowExecutionId: string,
     childWorkflowJobId: string,
+    client?: PoolClient,
   ): Promise<boolean> {
+    const executor = client ?? pool;
     const query = `
     SELECT COUNT(*) AS remaining
     FROM workflow_job_dependencies d
@@ -231,7 +233,7 @@ export class WorkflowJobExecutionRepository {
       AND e.status != 'COMPLETED';
   `;
 
-    const result = await pool.query(query, [
+    const result = await executor.query(query, [
       childWorkflowJobId,
       workflowExecutionId,
     ]);
@@ -242,8 +244,9 @@ export class WorkflowJobExecutionRepository {
   async markPending(
     workflowExecutionId: string,
     workflowJobId: string,
-    client: PoolClient
+    client?: PoolClient
   ): Promise<WorkflowJobExecution | null> {
+    const executor = client ?? pool;
     const query = `
     UPDATE workflow_job_executions
     SET
@@ -256,7 +259,7 @@ export class WorkflowJobExecutionRepository {
     RETURNING *;
   `;
 
-    const result = await client.query(query, [
+    const result = await executor.query(query, [
       workflowExecutionId,
       workflowJobId,
     ]);

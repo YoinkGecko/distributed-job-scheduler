@@ -4,7 +4,9 @@ import {
   WorkflowJobExecutionRepository,
 } from "@scheduler/database";
 import { JobStatus, AggregateType } from "@scheduler/types";
-import {workflowExecutionService} from "@scheduler/api";
+import { WorkflowDependencyService } from "@scheduler/api";
+
+const workflowDependencyService = new WorkflowDependencyService();
 
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";
@@ -97,7 +99,7 @@ async function startWorker() {
           await updateStatus(entityType, execution.id, JobStatus.COMPLETED);
 
           if (entityType === AggregateType.WORKFLOW_JOB_EXECUTION) {
-            await workflowExecutionService.releaseChildJobs(
+            await workflowDependencyService.releaseChildJobs(
               execution.workflowExecutionId,
               execution.workflowJobId,
             );
