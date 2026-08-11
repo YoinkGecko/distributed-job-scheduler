@@ -114,7 +114,9 @@ export class WorkflowJobExecutionRepository {
   async updateStatus(
     workflowJobExecutionId: string,
     status: JobStatus,
+    client?: PoolClient,
   ): Promise<void> {
+     const executor = client ?? pool;
     const query = `
     UPDATE workflow_job_executions
     SET
@@ -124,7 +126,7 @@ export class WorkflowJobExecutionRepository {
     WHERE id = $2;
   `;
 
-    await pool.query(query, [status, workflowJobExecutionId]);
+    await executor.query(query, [status, workflowJobExecutionId]);
   }
 
   async updateStatusByWorkflowJobIds(
