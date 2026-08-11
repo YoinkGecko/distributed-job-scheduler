@@ -1,19 +1,34 @@
 import redis from "@scheduler/redis";
 import {
   JobRepository,
+  WorkflowRepository,
+  WorkflowJobRepository,
+  WorkflowDependencyRepository,
   WorkflowJobExecutionRepository,
+  OutboxRepository,
 } from "@scheduler/database";
 import { JobStatus, AggregateType } from "@scheduler/types";
-import { WorkflowDependencyService } from "@scheduler/api";
+import { WorkflowDependencyService, OutboxService } from "@scheduler/api";
 
-const workflowDependencyService = new WorkflowDependencyService();
+const workflowRepository = new WorkflowRepository();
+const workflowJobRepository = new WorkflowJobRepository();
+const workflowDependencyRepository = new WorkflowDependencyRepository();
+const workflowJobExecutionRepository = new WorkflowJobExecutionRepository();
+const outboxRepository = new OutboxRepository();
+const outboxService = new OutboxService(outboxRepository);
+const workflowDependencyService = new WorkflowDependencyService(
+  workflowRepository,
+  workflowJobRepository,
+  workflowDependencyRepository,
+  workflowJobExecutionRepository,
+  outboxService,
+);
 
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";
 const CONSUMER_NAME = process.env.CONSUMER_NAME!;
 
 const jobRepository = new JobRepository();
-const workflowJobExecutionRepository = new WorkflowJobExecutionRepository();
 
 async function startWorker() {
   try {
@@ -99,9 +114,8 @@ async function startWorker() {
           await updateStatus(entityType, execution.id, JobStatus.COMPLETED);
 
           if (entityType === AggregateType.WORKFLOW_JOB_EXECUTION) {
-            await workflowDependencyService.releaseChildJobs(
-              execution.workflowExecutionId,
-              execution.workflowJobId,
+            await workflowDependencyService.completeWorkflowJobExecution(
+              execution.id,
             );
           }
 

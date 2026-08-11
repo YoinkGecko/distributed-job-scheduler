@@ -2,6 +2,7 @@ import {
   WorkflowStatus,
   CreateWorkflowDependencyInput,
   WorkflowJobDependency,
+  JobStatus
 } from "@scheduler/types";
 import {
   WorkflowRepository,
@@ -9,6 +10,7 @@ import {
   WorkflowDependencyRepository,
   WorkflowJobExecutionRepository,
   PoolClient,
+  pool
 } from "@scheduler/database";
 import crypto from "crypto";
 import { OutboxService } from "../services/outbox.service.js";
@@ -125,59 +127,101 @@ export class WorkflowDependencyService {
     }));
   }
 
-async releaseChildJobs(
-  workflowExecutionId: string,
-  completedWorkflowJobId: string,
-  client: PoolClient,
-): Promise<void> {
+  async releaseChildJobs(
+    workflowExecutionId: string,
+    completedWorkflowJobId: string,
+    client: PoolClient,
+  ): Promise<void> {
+    // 1. Find all immediate children
+    const childWorkflowJobIds =
+      await this.workflowDependencyRepository.findChildren(
+        completedWorkflowJobId,
+        client,
+      );
 
-  // 1. Find all immediate children
-  const childWorkflowJobIds =
-    await this.workflowDependencyRepository.findChildren(
-      completedWorkflowJobId,
-      client,
-    );
+    // No children
+    if (childWorkflowJobIds.length === 0) {
+      return;
+    }
 
-  // No children
-  if (childWorkflowJobIds.length === 0) {
-    return;
-  }
-
-  // 2. Check every child
-  for (const childWorkflowJobId of childWorkflowJobIds) {
-
-    const ready =
-      await this.workflowJobExecutionRepository
-        .areAllParentsCompleted(
+    // 2. Check every child
+    for (const childWorkflowJobId of childWorkflowJobIds) {
+      const ready =
+        await this.workflowJobExecutionRepository.areAllParentsCompleted(
           workflowExecutionId,
           childWorkflowJobId,
           client,
         );
 
-    if (!ready) {
-      continue;
-    }
+      if (!ready) {
+        continue;
+      }
 
-    // 3. WAITING -> PENDING
-    const childExecution =
-      await this.workflowJobExecutionRepository.markPending(
-        workflowExecutionId,
-        childWorkflowJobId,
+      // 3. WAITING -> PENDING
+      const childExecution =
+        await this.workflowJobExecutionRepository.markPending(
+          workflowExecutionId,
+          childWorkflowJobId,
+          client,
+        );
+
+      // Another worker may have already released it
+      if (!childExecution) {
+        continue;
+      }
+
+      // 4. Create outbox event in SAME transaction
+      await this.outboxService.createWorkflowJobExecutionEvent(
+        {
+          workflowJobExecutionId: childExecution.id,
+        },
+        client,
+      );
+    }
+  }
+
+  async completeWorkflowJobExecution(
+    workflowJobExecutionId: string,
+  ): Promise<void> {
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // 1. Mark current execution COMPLETED
+      await this.workflowJobExecutionRepository.updateStatus(
+        workflowJobExecutionId,
+        JobStatus.COMPLETED,
         client,
       );
 
-    // Another worker may have already released it
-    if (!childExecution) {
-      continue;
-    }
+      // 2. Get the execution so we know its workflow/job IDs
+      const execution = await this.workflowJobExecutionRepository.findById(
+        workflowJobExecutionId,
+        client,
+      );
 
-    // 4. Create outbox event in SAME transaction
-    await this.outboxService.createWorkflowJobExecutionEvent(
-      {
-        workflowJobExecutionId: childExecution.id,
-      },
-      client,
-    );
+      if (!execution) {
+        throw new Error(
+          `Workflow job execution ${workflowJobExecutionId} not found.`,
+        );
+      }
+
+      // 3. Release children using SAME transaction
+      await this.releaseChildJobs(
+        execution.workflowExecutionId,
+        execution.workflowJobId,
+        client,
+      );
+
+      // 4. Everything succeeded
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+
+      throw error;
+    } finally {
+      client.release();
+    }
   }
-}
 }

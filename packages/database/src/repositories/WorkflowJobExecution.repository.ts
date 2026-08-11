@@ -93,14 +93,16 @@ export class WorkflowJobExecutionRepository {
 
   async findById(
     workflowJobExecutionId: string,
+    client?: PoolClient,
   ): Promise<WorkflowJobExecution | null> {
+    const executor = client ?? pool;
     const findWorkflowJobExecutionQuery = `
     SELECT *
     FROM workflow_job_executions
     WHERE id = $1;
   `;
 
-    const result = await pool.query(findWorkflowJobExecutionQuery, [
+    const result = await executor.query(findWorkflowJobExecutionQuery, [
       workflowJobExecutionId,
     ]);
 
