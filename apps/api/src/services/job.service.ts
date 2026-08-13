@@ -86,4 +86,10 @@ export class JobService {
     const jobs = await this.jobRepository.getJobs();
     return jobs;
   }
+
+    async getJob(jobId:string){
+    if(!jobId) return false;
+    const jobs = await this.jobRepository.findById(jobId);
+    return jobs;
+  }
 }

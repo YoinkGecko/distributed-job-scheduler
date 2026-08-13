@@ -17,11 +17,21 @@ export async function createJob(req: Request, res: Response) {
   });
 }
 
-
 export async function getJobs(req: Request, res: Response) {
   const jobs = await jobService.getJobs();
   return res.status(200).json({
-    length:jobs.length,
+    length: jobs.length,
     jobs,
+  });
+}
+
+export async function getJob(req: Request, res: Response) {
+  const jobId = req.params.jobId as string;
+  const job = await jobService.getJob(jobId);
+  if (!job) {
+    return res.status(400).send("Job not found");
+  }
+  return res.status(200).json({
+    job,
   });
 }
