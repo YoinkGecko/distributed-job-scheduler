@@ -1,6 +1,5 @@
 'use client';
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo,useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -32,7 +31,7 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
 export default function JobsTable() {
   const router = useRouter();
-  const [jobs, setJobs] = useState<Job[]>(mockJobs);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<JobStatus[]>([]);
   const [priorityFilter, setPriorityFilter] = useState<JobPriority[]>([]);
@@ -43,6 +42,34 @@ export default function JobsTable() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showAddForm, setShowAddForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+useEffect(() => {
+  fetch("http://localhost:3000/jobs")
+    .then((res) => res.json())
+    .then((data) => {
+      // Map numeric priority (1, 2, etc.) to string priority ('LOW', 'NORMAL', etc.)
+      const formattedJobs = (data.jobs || []).map((job: any) => {
+        let priorityString: JobPriority = 'NORMAL';
+
+        if (typeof job.priority === 'number') {
+          if (job.priority <= 1) priorityString = 'LOW';
+          else if (job.priority === 2) priorityString = 'NORMAL';
+          else if (job.priority === 3) priorityString = 'HIGH';
+          else priorityString = 'CRITICAL';
+        } else {
+          priorityString = job.priority || 'NORMAL';
+        }
+
+        return {
+          ...job,
+          priority: priorityString,
+        };
+      });
+
+      setJobs(formattedJobs);
+    })
+    .catch((err) => console.error("Error fetching jobs:", err));
+}, []);
 
   const filtered = useMemo(() => {
     let result = [...jobs];
@@ -181,6 +208,8 @@ export default function JobsTable() {
     { key: 'maxRetries', label: 'Max Retries', width: 'w-24' },
     { key: 'assignedWorker', label: 'Worker', width: 'w-36' },
   ];
+
+
 
   return (
     <div className="space-y-4">
@@ -337,7 +366,7 @@ export default function JobsTable() {
                     </td>
                     <td className="px-3 py-3">
                       <span className="font-mono-data text-xs text-muted-foreground">
-                        {job.scheduledAt.replace('T', ' ').replace('Z', ' UTC')}
+                        {job?.scheduledAt?.replace('T', ' ').replace('Z', ' UTC')}
                       </span>
                     </td>
                     <td className="px-3 py-3">
