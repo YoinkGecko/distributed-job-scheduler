@@ -81,4 +81,9 @@ export class JobService {
     }
 
   }
+
+  async getJobs(){
+    const jobs = await this.jobRepository.getJobs();
+    return jobs;
+  }
 }

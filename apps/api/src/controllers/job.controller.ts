@@ -16,3 +16,12 @@ export async function createJob(req: Request, res: Response) {
     createdJob,
   });
 }
+
+
+export async function getJobs(req: Request, res: Response) {
+  const jobs = await jobService.getJobs();
+  return res.status(200).json({
+    length:jobs.length,
+    jobs,
+  });
+}

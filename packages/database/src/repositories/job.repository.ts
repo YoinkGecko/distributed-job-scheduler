@@ -205,4 +205,10 @@ export class JobRepository {
 
     await pool.query(prepareForRetryQuery, [jobId]);
   }
+
+  async getJobs(){
+    const  getJobsQuery = `select * from jobs;`
+    const jobs = await pool.query(getJobsQuery);
+    return snakeToCamel(jobs.rows);
+  }
 }
