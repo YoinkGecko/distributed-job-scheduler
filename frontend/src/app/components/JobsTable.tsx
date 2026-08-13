@@ -44,31 +44,41 @@ export default function JobsTable() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
 useEffect(() => {
-  fetch("http://localhost:3000/jobs")
-    .then((res) => res.json())
-    .then((data) => {
-      // Map numeric priority (1, 2, etc.) to string priority ('LOW', 'NORMAL', etc.)
-      const formattedJobs = (data.jobs || []).map((job: any) => {
-        let priorityString: JobPriority = 'NORMAL';
+  const fetchJobs = () => {
+    fetch("http://localhost:3000/jobs")
+      .then((res) => res.json())
+      .then((data) => {
+        const formattedJobs = (data.jobs || []).map((job: any) => {
+          let priorityString: JobPriority = 'NORMAL';
 
-        if (typeof job.priority === 'number') {
-          if (job.priority <= 1) priorityString = 'LOW';
-          else if (job.priority === 2) priorityString = 'NORMAL';
-          else if (job.priority === 3) priorityString = 'HIGH';
-          else priorityString = 'CRITICAL';
-        } else {
-          priorityString = job.priority || 'NORMAL';
-        }
+          if (typeof job.priority === 'number') {
+            if (job.priority <= 1) priorityString = 'LOW';
+            else if (job.priority === 2) priorityString = 'NORMAL';
+            else if (job.priority === 3) priorityString = 'HIGH';
+            else priorityString = 'CRITICAL';
+          } else {
+            priorityString = job.priority || 'NORMAL';
+          }
 
-        return {
-          ...job,
-          priority: priorityString,
-        };
-      });
+          return {
+            ...job,
+            priority: priorityString,
+          };
+        });
 
-      setJobs(formattedJobs);
-    })
-    .catch((err) => console.error("Error fetching jobs:", err));
+        setJobs(formattedJobs);
+      })
+      .catch((err) => console.error("Error fetching jobs:", err));
+  };
+
+  // 1. Fetch immediately on page load
+  fetchJobs();
+
+  // 2. Poll every 10,000ms (10 seconds)
+  const interval = setInterval(fetchJobs, 10000);
+
+  // 3. Clear interval on component unmount
+  return () => clearInterval(interval);
 }, []);
 
   const filtered = useMemo(() => {
