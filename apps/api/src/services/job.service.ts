@@ -12,6 +12,7 @@ export class JobService {
   ) {}
 
   private RetryPolicy = {
+    LOW: 2,
     NORMAL: 3,
     HIGH: 5,
     CRITICAL: 10,
