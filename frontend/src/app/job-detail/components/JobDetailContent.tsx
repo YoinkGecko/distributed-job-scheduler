@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { mockJobs, PRIORITY_VALUE } from '@/lib/mockData';
+import { PRIORITY_VALUE } from '@/lib/mockData';
+import type { Job, JobPriority } from '@/lib/mockData';
 import { StatusBadge, PriorityBadge } from '@/components/ui/StatusBadge';
 import { toast } from 'sonner';
 import {
@@ -18,12 +19,12 @@ import {
   CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 
-function formatTs(ts: string | null): string {
+function formatTs(ts: string | null | undefined): string {
   if (!ts) return '—';
-  return ts.replace('T', ' ').replace('Z', ' UTC');
+  return ts.replace('T', ' ').replace('Z', ' UTC').split('.')[0];
 }
 
-function timeDiff(a: string | null, b: string | null): string {
+function timeDiff(a: string | null | undefined, b: string | null | undefined): string {
   if (!a || !b) return '—';
   const ms = new Date(b).getTime() - new Date(a).getTime();
   if (ms < 0) return '—';
@@ -35,15 +36,70 @@ function timeDiff(a: string | null, b: string | null): string {
   return `${h}h ${m % 60}m`;
 }
 
+function normalizeJob(rawJob: any): Job {
+  let priorityString: JobPriority = 'NORMAL';
+
+  if (typeof rawJob?.priority === 'number') {
+    if (rawJob.priority <= 1) priorityString = 'LOW';
+    else if (rawJob.priority <= 5) priorityString = 'NORMAL';
+    else if (rawJob.priority <= 10) priorityString = 'HIGH';
+    else priorityString = 'CRITICAL';
+  } else {
+    priorityString = (rawJob?.priority?.toUpperCase() as JobPriority) || 'NORMAL';
+  }
+
+  return {
+    ...rawJob,
+    priority: priorityString,
+    retryCount: rawJob?.retryCount ?? 0,
+    maxRetries: rawJob?.maxRetries ?? 3,
+    payload: typeof rawJob?.payload === 'object' ? rawJob.payload : {},
+  };
+}
+
 export default function JobDetailContent() {
   const searchParams = useSearchParams();
-  const id = searchParams.get('id') ?? 'job-002';
-  const job = mockJobs.find((j) => j.id === id) ?? mockJobs[1];
+  const id = searchParams.get('id');
 
+  const [job, setJob] = useState<Job | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const fetchJobDetail = useCallback(async () => {
+    if (!id) {
+      setError('No job ID provided');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(`http://localhost:3000/jobs/${id}`);
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch job details (${res.status})`);
+      }
+
+      const data = await res.json();
+      const rawJob = data.job || data;
+      setJob(normalizeJob(rawJob));
+    } catch (err: any) {
+      console.error('Error loading job detail:', err);
+      setError(err.message || 'Error loading job details');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchJobDetail();
+  }, [fetchJobDetail]);
 
   function copyPayload() {
-    // Backend integration point: could also fetch full payload from /api/jobs/:id/payload
+    if (!job?.payload) return;
     navigator.clipboard.writeText(JSON.stringify(job.payload, null, 2)).then(() => {
       setCopied(true);
       toast.success('Payload copied to clipboard');
@@ -51,9 +107,50 @@ export default function JobDetailContent() {
     });
   }
 
-  function handleRetry() {
-    // Backend integration point: POST /api/jobs/:id/retry
-    toast.success('Job re-queued', { description: `${job.id} scheduled for retry` });
+  // async function handleRetry() {
+  //   if (!job?.id) return;
+
+  //   try {
+  //     setIsRetrying(true);
+  //     const res = await fetch(`http://localhost:3000/jobs/${job.id}/retry`, {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //     });
+
+  //     if (!res.ok) {
+  //       throw new Error(`Retry failed (${res.status})`);
+  //     }
+
+  //     toast.success('Job re-queued', { description: `${job.id} scheduled for retry` });
+  //     fetchJobDetail();
+  //   } catch (err: any) {
+  //     console.error('Retry error:', err);
+  //     toast.error('Failed to retry job', { description: err.message });
+  //   } finally {
+  //     setIsRetrying(false);
+  //   }
+  // }
+
+  if (loading) {
+    return (
+      <div className="p-12 text-center text-muted-foreground flex items-center justify-center gap-2">
+        <span className="w-4 h-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+        Loading job details…
+      </div>
+    );
+  }
+
+  if (error || !job) {
+    return (
+      <div className="card p-8 text-center space-y-4 max-w-lg mx-auto mt-12">
+        <ExclamationTriangleIcon width={32} height={32} className="text-amber-400 mx-auto" />
+        <h2 className="text-lg font-semibold text-foreground">Job Not Found</h2>
+        <p className="text-sm text-muted-foreground">{error || 'Could not find requested job detail'}</p>
+        <Link href="/" className="btn-primary inline-flex justify-center">
+          Back to Jobs List
+        </Link>
+      </div>
+    );
   }
 
   const retryPct = job.maxRetries > 0 ? Math.round((job.retryCount / job.maxRetries) * 100) : 0;
@@ -64,6 +161,8 @@ export default function JobDetailContent() {
     ? Date.now() - new Date(job.heartbeatAt).getTime()
     : null;
   const heartbeatStale = heartbeatAgeMs !== null && heartbeatAgeMs > 60_000;
+
+  const numericPriorityVal = PRIORITY_VALUE[job.priority as keyof typeof PRIORITY_VALUE] ?? '—';
 
   return (
     <div className="space-y-6 max-w-screen-2xl">
@@ -88,12 +187,6 @@ export default function JobDetailContent() {
         </div>
 
         <div className="flex items-center gap-2">
-          {(job.status === 'FAILED' || job.status === 'DEAD') && (
-            <button onClick={handleRetry} className="btn-secondary gap-2">
-              <ArrowPathIcon width={15} height={15} />
-              Retry Job
-            </button>
-          )}
           <Link href="/" className="btn-ghost text-sm">
             ← Back to Jobs
           </Link>
@@ -125,7 +218,7 @@ export default function JobDetailContent() {
                   <div className="flex items-center gap-2">
                     <PriorityBadge priority={job.priority} />
                     <span className="text-xs text-muted-foreground font-mono-data">
-                      (numeric: {PRIORITY_VALUE[job.priority]})
+                      (numeric: {numericPriorityVal})
                     </span>
                   </div>
                 }
@@ -383,11 +476,13 @@ function TimingRow({
       <span className="text-xs text-muted-foreground flex-shrink-0">{label}</span>
       <span
         className={`font-mono-data text-xs text-right ${
-          value === '—' ?'text-muted-foreground'
+          value === '—'
+            ? 'text-muted-foreground'
             : positive
             ? 'text-emerald-400'
             : highlight
-            ? 'text-blue-400' :'text-foreground'
+            ? 'text-blue-400'
+            : 'text-foreground'
         }`}
       >
         {value}
@@ -397,7 +492,7 @@ function TimingRow({
 }
 
 function JsonHighlight({ data }: { data: Record<string, unknown> }) {
-  const str = JSON.stringify(data, null, 2);
+  const str = JSON.stringify(data || {}, null, 2);
   const lines = str.split('\n');
   return (
     <>
