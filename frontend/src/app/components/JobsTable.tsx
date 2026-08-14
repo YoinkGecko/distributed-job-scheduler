@@ -344,9 +344,9 @@ const columns: { key: SortField; label: string; width: string }[] = [
                   </td>
                 </tr>
               ) : (
-                paginated.map((job) => (
+                paginated.map((job,index) => (
                   <tr
-                    key={job.id}
+                    key={job.id||index}
                     className={`border-b border-border/50 transition-all duration-200 hover:bg-secondary/40 ${
                       deletingId === job.id ? 'row-delete-exit' : ''
                     } ${selected.has(job.id) ? 'bg-primary/5' : ''}`}
@@ -361,7 +361,7 @@ const columns: { key: SortField; label: string; width: string }[] = [
                     </td>
                     <td className="px-3 py-3">
                       <span className="font-mono-data text-xs text-primary/80 font-medium">
-                        {job.id.split('-')[0]}
+                        {job?.id?.split('-')[0]}
                       </span>
                     </td>
                     <td className="px-3 py-3">

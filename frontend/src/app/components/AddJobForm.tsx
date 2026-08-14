@@ -37,6 +37,13 @@ const JOB_TYPE_SUGGESTIONS = [
   'audit.export_compliance_log',
 ];
 
+const PRIORITY_ENUM_MAP: Record<string, number> = {
+  LOW: 1,
+  NORMAL: 5,
+  HIGH: 10,
+  CRITICAL: 100,
+};
+
 export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -60,8 +67,7 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
   const derivedMaxRetries = RETRY_POLICY[watchedPriority] ?? 3;
   const derivedPriorityValue = PRIORITY_VALUE[watchedPriority] ?? 5;
 
-  function onSubmit(data: AddJobFormData) {
-    // Backend integration point: POST /api/jobs with validated form data
+  async function onSubmit(data: AddJobFormData) {
     let parsedPayload: Record<string, unknown> = {};
     try {
       parsedPayload = JSON.parse(data.payloadRaw);
@@ -70,34 +76,45 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      const now = new Date().toISOString();
+
+    try {
+      const response = await fetch('http://localhost:3000/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: data.type,
+          payload: parsedPayload,
+          priority: PRIORITY_ENUM_MAP[data.priority],
+          scheduledAt: new Date(data.scheduledAt).toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create job: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      const rawJob = result.job || result;
+
       const newJob: Job = {
-        id: `job-${String(existingCount + 1).padStart(3, '0')}`,
-        type: data.type,
-        payload: parsedPayload,
-        status: 'WAITING',
+        ...rawJob,
         priority: data.priority,
-        scheduledAt: new Date(data.scheduledAt).toISOString(),
-        createdAt: now,
-        updatedAt: now,
-        startedAt: null,
-        completedAt: null,
-        retryCount: 0,
-        maxRetries: derivedMaxRetries,
-        assignedWorker: null,
-        heartbeatAt: null,
-        lockExpiresAt: null,
-        lastError: null,
       };
+
       setIsSubmitting(false);
       setSubmitted(true);
+
       setTimeout(() => {
         onAdd(newJob);
         reset();
         setSubmitted(false);
       }, 600);
-    }, 800);
+    } catch (err) {
+      console.error('Error creating job:', err);
+      setIsSubmitting(false);
+    }
   }
 
   return (

@@ -59,25 +59,59 @@ const priorityConfig: Record<JobPriority, { label: string; value: number; classN
   },
 };
 
-export function StatusBadge({ status }: { status: JobStatus }) {
-  const config = statusConfig[status];
+const defaultStatusConfig = {
+  className: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
+  dotClass: 'bg-zinc-400',
+  label: 'UNKNOWN',
+};
+
+const defaultPriorityConfig = {
+  className: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
+  label: 'NORMAL',
+};
+
+// Map numeric DB enum values to string keys if needed
+const numericPriorityMap: Record<number, string> = {
+  1: 'LOW',
+  2: 'NORMAL',
+  5: 'NORMAL',
+  10: 'HIGH',
+  100: 'CRITICAL',
+};
+
+export function StatusBadge({ status }: { status?: JobStatus | string }) {
+  const key = (typeof status === 'string' ? status.toUpperCase() : '') as JobStatus;
+  const config = statusConfig[key] || statusConfig[status as JobStatus] || defaultStatusConfig;
+
   return (
     <span
       className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${config.className}`}
     >
       <span className={`status-dot ${config.dotClass}`} />
-      {config.label}
+      {config.label || status || 'UNKNOWN'}
     </span>
   );
 }
 
-export function PriorityBadge({ priority }: { priority: JobPriority }) {
-  const config = priorityConfig[priority];
+export function PriorityBadge({ priority }: { priority?: JobPriority | string | number }) {
+  let key = priority;
+
+  if (typeof priority === 'number') {
+    key = numericPriorityMap[priority] || 'NORMAL';
+  } else if (typeof priority === 'string') {
+    key = priority.toUpperCase();
+  }
+
+  const config =
+    priorityConfig[key as JobPriority] ||
+    priorityConfig[priority as JobPriority] ||
+    defaultPriorityConfig;
+
   return (
     <span
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border tracking-wide ${config.className}`}
     >
-      {config.label}
+      {config.label || String(priority || 'NORMAL')}
     </span>
   );
 }
