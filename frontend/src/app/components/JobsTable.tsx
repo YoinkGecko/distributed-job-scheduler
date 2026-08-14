@@ -71,13 +71,10 @@ useEffect(() => {
       .catch((err) => console.error("Error fetching jobs:", err));
   };
 
-  // 1. Fetch immediately on page load
   fetchJobs();
 
-  // 2. Poll every 10,000ms (10 seconds)
   const interval = setInterval(fetchJobs, 10000);
 
-  // 3. Clear interval on component unmount
   return () => clearInterval(interval);
 }, []);
 
@@ -209,15 +206,15 @@ useEffect(() => {
     );
   }
 
-  const columns: { key: SortField; label: string; width: string }[] = [
-    { key: 'id', label: 'Job ID', width: 'w-36' },
-    { key: 'type', label: 'Type', width: 'w-56' },
-    { key: 'status', label: 'Status', width: 'w-32' },
-    { key: 'priority', label: 'Priority', width: 'w-28' },
-    { key: 'scheduledAt', label: 'Scheduled At', width: 'w-44' },
-    { key: 'maxRetries', label: 'Max Retries', width: 'w-24' },
-    { key: 'assignedWorker', label: 'Worker', width: 'w-36' },
-  ];
+const columns: { key: SortField; label: string; width: string }[] = [
+  { key: 'id', label: 'Job ID', width: 'w-28' },
+  { key: 'type', label: 'Type', width: 'w-40' },
+  { key: 'status', label: 'Status', width: 'w-36' },
+  { key: 'priority', label: 'Priority', width: 'w-32' },
+  { key: 'scheduledAt', label: 'Scheduled At', width: 'w-48' },
+  { key: 'maxRetries', label: 'Max Retries', width: 'w-28' },
+  { key: 'assignedWorker', label: 'Worker', width: 'w-36' },
+];
 
 
 
@@ -360,7 +357,7 @@ useEffect(() => {
                     </td>
                     <td className="px-3 py-3">
                       <span className="font-mono-data text-xs text-primary/80 font-medium">
-                        {job.id}
+                        {job.id.split('-')[0]}
                       </span>
                     </td>
                     <td className="px-3 py-3">
@@ -374,9 +371,9 @@ useEffect(() => {
                     <td className="px-3 py-3">
                       <PriorityBadge priority={job.priority} />
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <span className="font-mono-data text-xs text-muted-foreground">
-                        {job?.scheduledAt?.replace('T', ' ').replace('Z', ' UTC')}
+                        {job.scheduledAt ? job.scheduledAt.split('.')[0].replace('T', ' ') : '—'}
                       </span>
                     </td>
                     <td className="px-3 py-3">
@@ -395,33 +392,7 @@ useEffect(() => {
                         <span className="text-xs text-muted-foreground italic">unassigned</span>
                       )}
                     </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Link
-                          href={`/job-detail?id=${job.id}`}
-                          title="View job details"
-                          className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
-                        >
-                          <EyeIcon width={15} height={15} />
-                        </Link>
-                        {(job.status === 'FAILED' || job.status === 'DEAD') && (
-                          <button
-                            onClick={() => handleRetry(job.id)}
-                            title="Retry job"
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-amber-400 hover:bg-amber-500/10 transition-all"
-                          >
-                            <ArrowPathIcon width={15} height={15} />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDelete(job.id)}
-                          title="Delete job — this cannot be undone"
-                          className="p-1.5 rounded-md text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-all"
-                        >
-                          <TrashIcon width={15} height={15} />
-                        </button>
-                      </div>
-                      {/* Always show eye icon */}
+                    <td className="px-3 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Link
                           href={`/job-detail?id=${job.id}`}
@@ -441,7 +412,7 @@ useEffect(() => {
                         )}
                         <button
                           onClick={() => handleDelete(job.id)}
-                          title="Delete job — this cannot be undone"
+                          title="Delete job"
                           className="p-1.5 rounded-md text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-all"
                         >
                           <TrashIcon width={15} height={15} />
