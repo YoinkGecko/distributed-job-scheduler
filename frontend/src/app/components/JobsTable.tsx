@@ -29,9 +29,13 @@ const PRIORITY_FILTERS: JobPriority[] = ['LOW', 'NORMAL', 'HIGH', 'CRITICAL'];
 const PRIORITY_ORDER: Record<JobPriority, number> = { LOW: 1, NORMAL: 5, HIGH: 10, CRITICAL: 100 };
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
-export default function JobsTable() {
+interface JobsTableProps {
+  jobs: Job[];
+  setJobs: React.Dispatch<React.SetStateAction<Job[]>>;
+}
+
+export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
   const router = useRouter();
-  const [jobs, setJobs] = useState<Job[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<JobStatus[]>([]);
   const [priorityFilter, setPriorityFilter] = useState<JobPriority[]>([]);
