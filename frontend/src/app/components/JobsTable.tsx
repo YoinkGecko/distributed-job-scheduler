@@ -89,12 +89,18 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
           const formattedJobs = (data.jobs || []).map((job: any) => {
             let priorityString: JobPriority = 'NORMAL';
 
-            if (typeof job.priority === 'number') {
-              if (job.priority <= 10 && job.priority > 0) priorityString = 'LOW';
-              else if (job.priority <= 40 && job.priority > 11) priorityString = 'NORMAL';
-              else if (job.priority <= 70 && job.priority > 40) priorityString = 'HIGH';
+            // Try to convert to number if it's a string
+            const priorityValue =
+              typeof job.priority === 'string' ? parseInt(job.priority, 10) : job.priority;
+
+            // Check if we have a valid number
+            if (typeof priorityValue === 'number' && !isNaN(priorityValue)) {
+              if (priorityValue <= 10) priorityString = 'LOW';
+              else if (priorityValue <= 40) priorityString = 'NORMAL';
+              else if (priorityValue <= 70) priorityString = 'HIGH';
               else priorityString = 'CRITICAL';
             } else {
+              // Use the string value directly (e.g., 'LOW', 'NORMAL', etc.)
               priorityString = job.priority || 'NORMAL';
             }
 
@@ -110,9 +116,7 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
     };
 
     fetchJobs();
-
     const interval = setInterval(fetchJobs, 10000);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -122,8 +126,8 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
       const q = search.toLowerCase();
       result = result.filter(
         (j) =>
-          j.id.toLowerCase().includes(q) ||
-          j.type.toLowerCase().includes(q) ||
+          j.id?.toLowerCase().includes(q) ||
+          j.type?.toLowerCase().includes(q) ||
           (j.assignedWorker && j.assignedWorker.toLowerCase().includes(q))
       );
     }

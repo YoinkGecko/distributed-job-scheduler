@@ -19,9 +19,9 @@ export default function JobsListPage() {
             let priorityString: JobPriority = 'NORMAL';
 
             if (typeof job.priority === 'number') {
-              if (job.priority <= 1) priorityString = 'LOW';
-              else if (job.priority === 2) priorityString = 'NORMAL';
-              else if (job.priority === 3) priorityString = 'HIGH';
+              if (job.priority <= 10) priorityString = 'LOW';
+              else if (job.priority <= 40) priorityString = 'NORMAL';
+              else if (job.priority <= 70) priorityString = 'HIGH';
               else priorityString = 'CRITICAL';
             } else {
               priorityString = job.priority || 'NORMAL';
