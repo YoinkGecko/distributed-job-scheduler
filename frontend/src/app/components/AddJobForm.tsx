@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { RETRY_POLICY } from '@/lib/mockData';
 import type { Job, JobPriority } from '@/lib/mockData';
 import {
   CheckCircleIcon,
   InformationCircleIcon,
+  ClockIcon,
+  CalendarIcon,
+  BoltIcon,
 } from '@heroicons/react/24/outline';
 
 interface AddJobFormData {
@@ -14,6 +17,7 @@ interface AddJobFormData {
   payloadRaw: string;
   priority: number;
   scheduledAt: string;
+  scheduleOption: 'now' | 'later';
 }
 
 interface Props {
@@ -37,7 +41,6 @@ const JOB_TYPE_SUGGESTIONS = [
   'audit.export_compliance_log',
 ];
 
-// Helper to derive string priority category from numeric priority (1 - 100)
 function derivePriorityLabel(num: number): JobPriority {
   if (num <= 10) return 'LOW';
   if (num <= 40) return 'NORMAL';
@@ -45,14 +48,34 @@ function derivePriorityLabel(num: number): JobPriority {
   return 'CRITICAL';
 }
 
+// Helper to get local datetime string for datetime-local input
+function getLocalDateTimeString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update current time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
     reset,
   } = useForm<AddJobFormData>({
@@ -60,13 +83,35 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
       type: '',
       payloadRaw: '{\n  \n}',
       priority: 35,
-      scheduledAt: new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16),
+      scheduleOption: 'later',
+      scheduledAt: getLocalDateTimeString(new Date(Date.now() + 5 * 60 * 1000)),
     },
   });
 
   const numericPriority = Number(watch('priority')) || 35;
   const derivedPriorityLabel = derivePriorityLabel(numericPriority);
   const derivedMaxRetries = RETRY_POLICY[derivedPriorityLabel] ?? 3;
+  const scheduleOption = watch('scheduleOption');
+
+  const handleScheduleOptionChange = (option: 'now' | 'later') => {
+    setValue('scheduleOption', option);
+    if (option === 'now') {
+      const now = new Date();
+      now.setSeconds(0);
+      now.setMilliseconds(0);
+      setValue('scheduledAt', getLocalDateTimeString(now));
+    } else {
+      const later = new Date(Date.now() + 5 * 60 * 1000);
+      setValue('scheduledAt', getLocalDateTimeString(later));
+    }
+  };
+
+  const setScheduledToNow = (offsetMinutes: number = 5) => {
+    const date = new Date(Date.now() + offsetMinutes * 60 * 1000);
+    date.setSeconds(0);
+    date.setMilliseconds(0);
+    setValue('scheduledAt', getLocalDateTimeString(date));
+  };
 
   async function onSubmit(data: AddJobFormData) {
     let parsedPayload: Record<string, unknown> = {};
@@ -79,6 +124,15 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
     setIsSubmitting(true);
 
     const priorityValue = Number(data.priority);
+    let scheduledAt: string;
+
+    if (data.scheduleOption === 'now') {
+      scheduledAt = new Date().toISOString();
+    } else {
+      // Convert local datetime string to UTC ISO string
+      const localDate = new Date(data.scheduledAt);
+      scheduledAt = localDate.toISOString();
+    }
 
     try {
       const response = await fetch('http://localhost:3000/jobs', {
@@ -90,7 +144,7 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
           type: data.type,
           payload: parsedPayload,
           priority: priorityValue,
-          scheduledAt: new Date(data.scheduledAt).toISOString(),
+          scheduledAt: scheduledAt,
         }),
       });
 
@@ -114,12 +168,25 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
         onAdd(newJob);
         reset();
         setSubmitted(false);
+        setValue('scheduleOption', 'later');
+        setValue('scheduledAt', getLocalDateTimeString(new Date(Date.now() + 5 * 60 * 1000)));
       }, 600);
     } catch (err) {
       console.error('Error creating job:', err);
       setIsSubmitting(false);
     }
   }
+
+  const validateScheduledAt = (value: string) => {
+    if (!value) return 'Scheduled time is required';
+    const selectedDate = new Date(value);
+    const now = new Date();
+    const minDate = new Date(now.getTime() + 60 * 1000);
+    if (selectedDate < minDate) {
+      return 'Scheduled time must be at least 1 minute from now';
+    }
+    return true;
+  };
 
   return (
     <div className="card p-6 border-primary/20">
@@ -189,22 +256,142 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
             )}
           </div>
 
-          {/* Scheduled At */}
+          {/* Scheduled At - Redesigned */}
           <div>
-            <label className="label-text">Scheduled At *</label>
+            <label className="label-text">Schedule *</label>
             <p className="text-xs text-muted-foreground mb-2">
-              When this job should be picked up by a worker
+              Choose when this job should be picked up by a worker
             </p>
-            <input
-              type="datetime-local"
-              {...register('scheduledAt', { required: 'Scheduled time is required' })}
-              className={`input-field font-mono-data ${errors.scheduledAt ? 'border-red-500/50' : ''}`}
-            />
-            {errors.scheduledAt && (
-              <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
-                <InformationCircleIcon width={13} height={13} />
-                {errors.scheduledAt.message}
-              </p>
+            
+            {/* Schedule Toggle */}
+            <div className="relative bg-secondary/50 rounded-lg p-1 mb-3 border border-border">
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleScheduleOptionChange('now')}
+                  className={`
+                    flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200
+                    ${scheduleOption === 'now'
+                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                    }
+                  `}
+                >
+                  <BoltIcon width={16} height={16} className={scheduleOption === 'now' ? 'text-primary-foreground' : ''} />
+                  Run Now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleScheduleOptionChange('later')}
+                  className={`
+                    flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200
+                    ${scheduleOption === 'later'
+                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                    }
+                  `}
+                >
+                  <CalendarIcon width={16} height={16} className={scheduleOption === 'later' ? 'text-primary-foreground' : ''} />
+                  Schedule Later
+                </button>
+              </div>
+            </div>
+
+            {/* DateTime Picker - Only when "Later" is selected */}
+            {scheduleOption === 'later' && (
+              <div className="space-y-3">
+                {/* Current time reference */}
+                <div className="flex items-center justify-between bg-secondary/30 rounded-lg px-3 py-2 border border-border">
+                  <div className="flex items-center gap-2">
+                    <ClockIcon width={14} height={14} className="text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Current time:</span>
+                  </div>
+                  <span className="font-mono-data text-xs text-foreground">
+                    {currentTime.toLocaleTimeString('en-IN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      hour12: true,
+                    })}
+                  </span>
+                </div>
+
+                {/* DateTime input with quick actions */}
+                <div className="relative">
+                  <CalendarIcon width={18} height={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="datetime-local"
+                    {...register('scheduledAt', {
+                      required: scheduleOption === 'later' ? 'Scheduled time is required' : false,
+                      validate: scheduleOption === 'later' ? validateScheduledAt : undefined,
+                    })}
+                    className={`input-field pl-10 font-mono-data ${errors.scheduledAt ? 'border-red-500/50' : ''}`}
+                  />
+                </div>
+
+                {/* Quick action buttons */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setScheduledToNow(1)}
+                    className="text-xs px-3 py-1.5 rounded-md border border-border bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    +1 min
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScheduledToNow(5)}
+                    className="text-xs px-3 py-1.5 rounded-md border border-border bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    +5 min
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScheduledToNow(15)}
+                    className="text-xs px-3 py-1.5 rounded-md border border-border bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    +15 min
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScheduledToNow(30)}
+                    className="text-xs px-3 py-1.5 rounded-md border border-border bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    +30 min
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScheduledToNow(60)}
+                    className="text-xs px-3 py-1.5 rounded-md border border-border bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    +1 hour
+                  </button>
+                </div>
+
+                {errors.scheduledAt && (
+                  <p className="text-xs text-red-400 flex items-center gap-1">
+                    <InformationCircleIcon width={13} height={13} />
+                    {errors.scheduledAt.message}
+                  </p>
+                )}
+                
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span>Select a date &amp; time in the future (minimum 1 minute from now)</span>
+                </p>
+              </div>
+            )}
+
+            {/* Now indicator */}
+            {scheduleOption === 'now' && (
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-4 py-3 flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div>
+                  <p className="text-sm text-foreground font-medium">Immediate Execution</p>
+                  <p className="text-xs text-muted-foreground">
+                    Job will be queued for immediate processing
+                  </p>
+                </div>
+              </div>
             )}
           </div>
 

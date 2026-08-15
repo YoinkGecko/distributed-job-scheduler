@@ -59,9 +59,9 @@ function normalizeJob(rawJob: any): Job {
   let priorityString: JobPriority = 'NORMAL';
 
   if (typeof rawJob?.priority === 'number') {
-    if (rawJob.priority <= 1) priorityString = 'LOW';
-    else if (rawJob.priority <= 5) priorityString = 'NORMAL';
-    else if (rawJob.priority <= 10) priorityString = 'HIGH';
+    if (rawJob.priority <= 10) priorityString = 'LOW';
+    else if (rawJob.priority <= 40) priorityString = 'NORMAL';
+    else if (rawJob.priority <= 70) priorityString = 'HIGH';
     else priorityString = 'CRITICAL';
   } else {
     priorityString = (rawJob?.priority?.toUpperCase() as JobPriority) || 'NORMAL';
@@ -152,9 +152,18 @@ export default function JobDetailContent() {
 
   if (loading) {
     return (
-      <div className="p-12 text-center text-muted-foreground flex items-center justify-center gap-2">
-        <span className="w-4 h-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-        Loading job details…
+      <div className="space-y-6">
+        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2 space-y-5">
+            <div className="card p-5 h-64 bg-muted animate-pulse" />
+            <div className="card p-5 h-48 bg-muted animate-pulse" />
+          </div>
+          <div className="space-y-5">
+            <div className="card p-5 h-64 bg-muted animate-pulse" />
+            <div className="card p-5 h-48 bg-muted animate-pulse" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -233,9 +242,6 @@ export default function JobDetailContent() {
                 value={
                   <div className="flex items-center gap-2">
                     <PriorityBadge priority={job.priority} />
-                    <span className="text-xs text-muted-foreground font-mono-data">
-                      (numeric: {numericPriorityVal})
-                    </span>
                   </div>
                 }
               />
@@ -507,6 +513,9 @@ function TimingRow({
 }
 
 function JsonHighlight({ data }: { data: Record<string, unknown> }) {
+  if (!data || Object.keys(data).length === 0) {
+    return <span className="text-muted-foreground italic">Empty payload</span>;
+  }
   const str = JSON.stringify(data || {}, null, 2);
   const lines = str.split('\n');
   return (
