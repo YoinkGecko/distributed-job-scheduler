@@ -21,7 +21,26 @@ import {
 
 function formatTs(ts: string | null | undefined): string {
   if (!ts) return '—';
-  return ts.replace('T', ' ').replace('Z', ' UTC').split('.')[0];
+
+  try {
+    const date = new Date(ts);
+    if (isNaN(date.getTime())) return '—';
+
+    return (
+      date.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      }) + ' IST'
+    );
+  } catch {
+    return '—';
+  }
 }
 
 function timeDiff(a: string | null | undefined, b: string | null | undefined): string {
@@ -145,7 +164,9 @@ export default function JobDetailContent() {
       <div className="card p-8 text-center space-y-4 max-w-lg mx-auto mt-12">
         <ExclamationTriangleIcon width={32} height={32} className="text-amber-400 mx-auto" />
         <h2 className="text-lg font-semibold text-foreground">Job Not Found</h2>
-        <p className="text-sm text-muted-foreground">{error || 'Could not find requested job detail'}</p>
+        <p className="text-sm text-muted-foreground">
+          {error || 'Could not find requested job detail'}
+        </p>
         <Link href="/" className="btn-primary inline-flex justify-center">
           Back to Jobs List
         </Link>
@@ -157,9 +178,7 @@ export default function JobDetailContent() {
   const retryColor =
     retryPct >= 100 ? 'bg-red-500' : retryPct >= 60 ? 'bg-amber-500' : 'bg-emerald-500';
 
-  const heartbeatAgeMs = job.heartbeatAt
-    ? Date.now() - new Date(job.heartbeatAt).getTime()
-    : null;
+  const heartbeatAgeMs = job.heartbeatAt ? Date.now() - new Date(job.heartbeatAt).getTime() : null;
   const heartbeatStale = heartbeatAgeMs !== null && heartbeatAgeMs > 60_000;
 
   const numericPriorityVal = PRIORITY_VALUE[job.priority as keyof typeof PRIORITY_VALUE] ?? '—';
@@ -208,10 +227,7 @@ export default function JobDetailContent() {
             <div className="grid grid-cols-2 gap-4">
               <FieldRow label="Job ID" value={job.id} mono />
               <FieldRow label="Type" value={job.type} mono />
-              <FieldRow
-                label="Status"
-                value={<StatusBadge status={job.status} />}
-              />
+              <FieldRow label="Status" value={<StatusBadge status={job.status} />} />
               <FieldRow
                 label="Priority"
                 value={
@@ -243,7 +259,9 @@ export default function JobDetailContent() {
                         style={{ width: `${Math.min(retryPct, 100)}%` }}
                       />
                     </div>
-                    <p className="text-xs text-muted-foreground">{retryPct}% of retry budget used</p>
+                    <p className="text-xs text-muted-foreground">
+                      {retryPct}% of retry budget used
+                    </p>
                   </div>
                 }
               />
@@ -281,10 +299,7 @@ export default function JobDetailContent() {
                   Payload
                 </h2>
               </div>
-              <button
-                onClick={copyPayload}
-                className="btn-ghost text-xs py-1"
-              >
+              <button onClick={copyPayload} className="btn-ghost text-xs py-1">
                 {copied ? (
                   <>
                     <CheckCircleIcon width={13} height={13} className="text-primary" />
@@ -366,7 +381,9 @@ export default function JobDetailContent() {
                 <span className="label-text mb-1">Last Heartbeat</span>
                 {job.heartbeatAt ? (
                   <div className="flex items-center gap-2">
-                    <p className={`font-mono-data text-xs ${heartbeatStale ? 'text-amber-400' : 'text-foreground'}`}>
+                    <p
+                      className={`font-mono-data text-xs ${heartbeatStale ? 'text-amber-400' : 'text-foreground'}`}
+                    >
                       {formatTs(job.heartbeatAt)}
                     </p>
                     {heartbeatStale && (
@@ -450,9 +467,7 @@ function FieldRow({
     <div className={fullWidth ? 'col-span-2' : ''}>
       <span className="label-text">{label}</span>
       {typeof value === 'string' ? (
-        <p className={`text-sm text-foreground mt-0.5 ${mono ? 'font-mono-data' : ''}`}>
-          {value}
-        </p>
+        <p className={`text-sm text-foreground mt-0.5 ${mono ? 'font-mono-data' : ''}`}>{value}</p>
       ) : (
         <div className="mt-1">{value}</div>
       )}
@@ -479,10 +494,10 @@ function TimingRow({
           value === '—'
             ? 'text-muted-foreground'
             : positive
-            ? 'text-emerald-400'
-            : highlight
-            ? 'text-blue-400'
-            : 'text-foreground'
+              ? 'text-emerald-400'
+              : highlight
+                ? 'text-blue-400'
+                : 'text-foreground'
         }`}
       >
         {value}

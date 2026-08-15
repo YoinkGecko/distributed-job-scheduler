@@ -37,7 +37,13 @@ export default function JobsListPage() {
           // Format current time as HH:MM:SS UTC
           const now = new Date();
           setLastUpdated(
-            `${now.getUTCHours().toString().padStart(2, '0')}:${now.getUTCMinutes().toString().padStart(2, '0')}:${now.getUTCSeconds().toString().padStart(2, '0')} UTC`
+            now.toLocaleTimeString('en-IN', {
+              timeZone: 'Asia/Kolkata',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: true,
+            }) + ' IST'
           );
         })
         .catch((err) => console.error('Error fetching jobs:', err));
