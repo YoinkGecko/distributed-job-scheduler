@@ -103,6 +103,7 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
 
       const newJob: Job = {
         ...rawJob,
+        type: rawJob.type || data.type,
         priority: derivePriorityLabel(priorityValue),
       };
 
