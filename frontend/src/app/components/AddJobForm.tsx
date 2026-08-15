@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { RETRY_POLICY, PRIORITY_VALUE } from '@/lib/mockData';
+import { RETRY_POLICY } from '@/lib/mockData';
 import type { Job, JobPriority } from '@/lib/mockData';
 import {
   CheckCircleIcon,
@@ -12,7 +12,7 @@ import {
 interface AddJobFormData {
   type: string;
   payloadRaw: string;
-  priority: JobPriority;
+  priority: number;
   scheduledAt: string;
 }
 
@@ -37,12 +37,13 @@ const JOB_TYPE_SUGGESTIONS = [
   'audit.export_compliance_log',
 ];
 
-const PRIORITY_ENUM_MAP: Record<string, number> = {
-  LOW: 1,
-  NORMAL: 5,
-  HIGH: 10,
-  CRITICAL: 100,
-};
+// Helper to derive string priority category from numeric priority (1 - 100)
+function derivePriorityLabel(num: number): JobPriority {
+  if (num <= 10) return 'LOW';
+  if (num <= 40) return 'NORMAL';
+  if (num <= 70) return 'HIGH';
+  return 'CRITICAL';
+}
 
 export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,14 +59,14 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
     defaultValues: {
       type: '',
       payloadRaw: '{\n  \n}',
-      priority: 'NORMAL',
+      priority: 35,
       scheduledAt: new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16),
     },
   });
 
-  const watchedPriority = watch('priority') as JobPriority;
-  const derivedMaxRetries = RETRY_POLICY[watchedPriority] ?? 3;
-  const derivedPriorityValue = PRIORITY_VALUE[watchedPriority] ?? 5;
+  const numericPriority = Number(watch('priority')) || 35;
+  const derivedPriorityLabel = derivePriorityLabel(numericPriority);
+  const derivedMaxRetries = RETRY_POLICY[derivedPriorityLabel] ?? 3;
 
   async function onSubmit(data: AddJobFormData) {
     let parsedPayload: Record<string, unknown> = {};
@@ -77,6 +78,8 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
 
     setIsSubmitting(true);
 
+    const priorityValue = Number(data.priority);
+
     try {
       const response = await fetch('http://localhost:3000/jobs', {
         method: 'POST',
@@ -86,7 +89,7 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
         body: JSON.stringify({
           type: data.type,
           payload: parsedPayload,
-          priority: PRIORITY_ENUM_MAP[data.priority],
+          priority: priorityValue,
           scheduledAt: new Date(data.scheduledAt).toISOString(),
         }),
       });
@@ -100,7 +103,7 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
 
       const newJob: Job = {
         ...rawJob,
-        priority: data.priority,
+        priority: derivePriorityLabel(priorityValue),
       };
 
       setIsSubmitting(false);
@@ -158,21 +161,31 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
             )}
           </div>
 
-          {/* Priority */}
+          {/* Numeric Priority Input */}
           <div>
-            <label className="label-text">Priority *</label>
+            <label className="label-text">Priority Number (1 – 100) *</label>
             <p className="text-xs text-muted-foreground mb-2">
-              Sets the execution priority and auto-derives the retry limit
+              Enter a numerical priority value from 1 (lowest) to 100 (highest)
             </p>
-            <select
-              {...register('priority', { required: true })}
-              className="input-field"
-            >
-              <option value="LOW">LOW — Priority 1</option>
-              <option value="NORMAL">NORMAL — Priority 5</option>
-              <option value="HIGH">HIGH — Priority 10</option>
-              <option value="CRITICAL">CRITICAL — Priority 100</option>
-            </select>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              placeholder="5"
+              {...register('priority', {
+                required: 'Priority value is required',
+                valueAsNumber: true,
+                min: { value: 1, message: 'Priority must be at least 1' },
+                max: { value: 100, message: 'Priority cannot exceed 100' },
+              })}
+              className={`input-field font-mono-data ${errors.priority ? 'border-red-500/50' : ''}`}
+            />
+            {errors.priority && (
+              <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+                <InformationCircleIcon width={13} height={13} />
+                {errors.priority.message}
+              </p>
+            )}
           </div>
 
           {/* Scheduled At */}
@@ -205,8 +218,12 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
               {...register('payloadRaw', {
                 validate: (v) => {
                   if (!v.trim()) return true;
-                  try { JSON.parse(v); return true; }
-                  catch { return 'Payload must be valid JSON'; }
+                  try {
+                    JSON.parse(v);
+                    return true;
+                  } catch {
+                    return 'Payload must be valid JSON';
+                  }
                 },
               })}
               className={`input-field font-mono-data resize-none ${errors.payloadRaw ? 'border-red-500/50' : ''}`}
@@ -221,20 +238,20 @@ export default function AddJobForm({ onAdd, onCancel, existingCount }: Props) {
           </div>
         </div>
 
-        {/* Derived info banner */}
+        {/* Dynamic derived info banner */}
         <div className="bg-primary/5 border border-primary/15 rounded-lg px-4 py-3 flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <InformationCircleIcon width={14} height={14} className="text-primary flex-shrink-0" />
-            <span className="text-xs text-muted-foreground">Auto-derived from priority:</span>
+            <span className="text-xs text-muted-foreground">Derived from numerical priority:</span>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-xs">
-              <span className="text-muted-foreground">Max Retries: </span>
-              <span className="font-mono-data font-semibold text-primary">{derivedMaxRetries}</span>
+              <span className="text-muted-foreground">Category: </span>
+              <span className="font-mono-data font-semibold text-primary">{derivedPriorityLabel}</span>
             </span>
             <span className="text-xs">
-              <span className="text-muted-foreground">Priority Value: </span>
-              <span className="font-mono-data font-semibold text-primary">{derivedPriorityValue}</span>
+              <span className="text-muted-foreground">Max Retries: </span>
+              <span className="font-mono-data font-semibold text-primary">{derivedMaxRetries}</span>
             </span>
             <span className="text-xs">
               <span className="text-muted-foreground">Initial Status: </span>
