@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { XMarkIcon, InformationCircleIcon, ClockIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 
 type ScheduleType = 'ONCE' | 'INTERVAL' | 'CRON';
@@ -86,10 +86,8 @@ export default function CreateWorkflowModal({ isOpen, onClose, onCreated }: Prop
 
   const scheduleType = watch('scheduleType');
 
-  // Update expression placeholder when schedule type changes
   const handleScheduleTypeChange = (type: ScheduleType) => {
     setValue('scheduleType', type);
-    // Set default expression based on type
     if (type === 'ONCE') {
       setValue('scheduleExpression', '');
     } else if (type === 'INTERVAL') {
@@ -99,7 +97,6 @@ export default function CreateWorkflowModal({ isOpen, onClose, onCreated }: Prop
     }
   };
 
-  // Validate expression based on schedule type
   const validateExpression = (value: string) => {
     if (!value || value.trim() === '') {
       return 'Schedule expression is required';
@@ -110,7 +107,6 @@ export default function CreateWorkflowModal({ isOpen, onClose, onCreated }: Prop
       if (isNaN(date.getTime())) {
         return 'Please select a valid date and time';
       }
-      // Check if date is in the future
       if (date < new Date()) {
         return 'Date must be in the future';
       }
@@ -144,10 +140,8 @@ export default function CreateWorkflowModal({ isOpen, onClose, onCreated }: Prop
         metadata = {};
       }
 
-      // Format expression based on type
       let expression = data.scheduleExpression.trim();
       if (data.scheduleType === 'ONCE') {
-        // Convert local datetime to ISO string for backend
         const date = new Date(data.scheduleExpression);
         expression = date.toISOString();
       }
@@ -163,8 +157,6 @@ export default function CreateWorkflowModal({ isOpen, onClose, onCreated }: Prop
         endAt: data.endAt ? new Date(data.endAt).toISOString() : null,
         metadata,
       };
-
-      console.log('Sending payload:', payload);
 
       const response = await fetch('http://localhost:3000/workflow/createworkflow', {
         method: 'POST',
@@ -203,9 +195,9 @@ export default function CreateWorkflowModal({ isOpen, onClose, onCreated }: Prop
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-2xl max-h-[90vh] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-secondary/30">
+      <div className="relative w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Header - Fixed */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-secondary/30 flex-shrink-0">
           <div>
             <h2 className="text-xl font-semibold text-foreground">Create New Workflow</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -220,8 +212,8 @@ export default function CreateWorkflowModal({ isOpen, onClose, onCreated }: Prop
           </button>
         </div>
 
-        {/* Body */}
-        <div className="overflow-y-auto max-h-[calc(90vh-8rem)] px-6 py-5">
+        {/* Body - Scrollable */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Basic Info */}
             <div className="space-y-4">
@@ -338,7 +330,6 @@ export default function CreateWorkflowModal({ isOpen, onClose, onCreated }: Prop
                 </div>
               </div>
 
-              {/* Start & End At */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                 <div>
                   <label className="label-text">Start At (Optional)</label>
@@ -389,8 +380,8 @@ export default function CreateWorkflowModal({ isOpen, onClose, onCreated }: Prop
           </form>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-secondary/30">
+        {/* Footer - Fixed */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-secondary/30 flex-shrink-0">
           <button type="button" onClick={onClose} className="btn-secondary">
             Cancel
           </button>
