@@ -1,8 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import { mockWorkflows } from '@/lib/mockData';
-import type { Workflow } from '@/lib/mockData';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
   ArrowsRightLeftIcon,
@@ -11,35 +9,43 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   ClockIcon,
-  BoltIcon,
   CalendarDaysIcon,
-  CursorArrowRaysIcon,
-  GlobeAltIcon,
   PlusIcon,
   MagnifyingGlassIcon,
+  CalendarIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
-import Icon from '@/components/ui/AppIcon';
 import CreateWorkflowModal from './CreateWorkflowModal';
 
-type WorkflowStatus = Workflow['status'];
-type TriggerType = Workflow['triggerType'];
+type WorkflowStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+type ScheduleType = 'ONCE' | 'INTERVAL' | 'CRON';
+
+interface Workflow {
+  id: string;
+  name: string;
+  description: string | null;
+  status: WorkflowStatus;
+  startAt: string | null;
+  endAt: string | null;
+  scheduleType: ScheduleType;
+  scheduleExpression: string;
+  timezone: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const statusConfig: Record<WorkflowStatus, { label: string; className: string; dotClass: string }> =
   {
     ACTIVE: {
       label: 'Active',
       className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-      dotClass: 'bg-emerald-400 status-dot-running',
+      dotClass: 'bg-emerald-400',
     },
     PAUSED: {
       label: 'Paused',
       className: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
       dotClass: 'bg-amber-400',
-    },
-    DRAFT: {
-      label: 'Draft',
-      className: 'bg-zinc-800 text-zinc-400 border-zinc-700',
-      dotClass: 'bg-zinc-500',
     },
     ARCHIVED: {
       label: 'Archived',
@@ -48,33 +54,45 @@ const statusConfig: Record<WorkflowStatus, { label: string; className: string; d
     },
   };
 
-const triggerConfig: Record<
-  TriggerType,
-  { label: string; icon: React.ElementType; className: string }
-> = {
-  CRON: {
-    label: 'Cron',
-    icon: ClockIcon,
-    className: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  },
-  EVENT: {
-    label: 'Event',
-    icon: BoltIcon,
-    className: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-  },
-  MANUAL: {
-    label: 'Manual',
-    icon: CursorArrowRaysIcon,
-    className: 'bg-zinc-800 text-zinc-400 border-zinc-700',
-  },
-  WEBHOOK: {
-    label: 'Webhook',
-    icon: GlobeAltIcon,
-    className: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
-  },
-};
+const scheduleTypeConfig: Record<ScheduleType, { label: string; icon: React.ElementType; className: string }> =
+  {
+    ONCE: {
+      label: 'Once',
+      icon: CalendarIcon,
+      className: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    },
+    INTERVAL: {
+      label: 'Interval',
+      icon: ArrowPathIcon,
+      className: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    },
+    CRON: {
+      label: 'Cron',
+      icon: ClockIcon,
+      className: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+    },
+  };
 
-function formatTs(ts: string | null): string {
+function formatDate(ts: string | null): string {
+  if (!ts) return 'Never';
+  try {
+    const date = new Date(ts);
+    if (isNaN(date.getTime())) return 'Invalid date';
+    return date.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return 'Invalid date';
+  }
+}
+
+function formatRelativeTime(ts: string | null): string {
   if (!ts) return 'Never';
   const d = new Date(ts);
   const now = new Date();
@@ -84,50 +102,117 @@ function formatTs(ts: string | null): string {
   if (diffMin < 60) return `${diffMin}m ago`;
   const diffH = Math.floor(diffMin / 60);
   if (diffH < 24) return `${diffH}h ago`;
-  return ts.slice(0, 10);
+  return formatDate(ts);
+}
+
+function getScheduleDisplay(scheduleType: ScheduleType, expression: string): string {
+  switch (scheduleType) {
+    case 'ONCE':
+      return formatDate(expression);
+    case 'INTERVAL':
+      return `Every ${expression}`;
+    case 'CRON':
+      return expression;
+    default:
+      return expression;
+  }
 }
 
 export default function WorkflowsContent() {
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [workflows, setWorkflows] = useState<Workflow[]>(mockWorkflows);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<WorkflowStatus | 'ALL'>('ALL');
+
+  // Fetch workflows from API
+  const fetchWorkflows = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:3000/workflow/');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch workflows: ${response.statusText}`);
+      }
+      const data = await response.json();
+      // Response: { length: 6, workflows: [...] }
+      const workflowList = data.workflows || [];
+      setWorkflows(workflowList);
+    } catch (err) {
+      console.error('Error fetching workflows:', err);
+      toast.error('Failed to load workflows');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWorkflows();
+  }, []);
 
   const filtered = workflows.filter((wf) => {
     const matchSearch =
       !search ||
       wf.name.toLowerCase().includes(search.toLowerCase()) ||
-      wf.description.toLowerCase().includes(search.toLowerCase());
+      (wf.description && wf.description.toLowerCase().includes(search.toLowerCase()));
     const matchStatus = statusFilter === 'ALL' || wf.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
   const totalActive = workflows.filter((w) => w.status === 'ACTIVE').length;
-  const activeJobs = workflows.reduce((s, w) => s + w.activeJobs, 0);
-  const completedToday = workflows.reduce((s, w) => s + w.completedToday, 0);
-  const failedWorkflows = workflows.filter(
-    (w) => w.lastRunStatus === 'FAILED' || w.lastRunStatus === 'DEAD'
-  ).length;
+  const totalArchived = workflows.filter((w) => w.status === 'ARCHIVED').length;
+  const totalPaused = workflows.filter((w) => w.status === 'PAUSED').length;
 
-  function togglePause(id: string) {
-    // Backend integration point: PATCH /api/workflows/:id { status: 'PAUSED' | 'ACTIVE' }
-    setWorkflows((prev) =>
-      prev.map((w) =>
-        w.id === id ? { ...w, status: w.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE' } : w
-      )
-    );
+  async function togglePause(id: string) {
     const wf = workflows.find((w) => w.id === id);
-    if (wf) {
+    if (!wf) return;
+
+    const newStatus = wf.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+
+    try {
+      const response = await fetch(`http://localhost:3000/workflow/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update workflow: ${response.statusText}`);
+      }
+
+      // Update local state
+      setWorkflows((prev) =>
+        prev.map((w) => (w.id === id ? { ...w, status: newStatus } : w))
+      );
+
       toast.success(wf.status === 'ACTIVE' ? 'Workflow paused' : 'Workflow resumed', {
         description: wf.name,
       });
+    } catch (err) {
+      console.error('Error toggling workflow:', err);
+      toast.error('Failed to update workflow status');
     }
   }
 
-  function handleTriggerManual(id: string) {
-    // Backend integration point: POST /api/workflows/:id/trigger
+  async function handleTriggerManual(id: string) {
     const wf = workflows.find((w) => w.id === id);
-    toast.success('Workflow triggered', { description: `${wf?.name} run started` });
+    if (!wf) return;
+
+    try {
+      const response = await fetch(`http://localhost:3000/workflow/${id}/trigger`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to trigger workflow: ${response.statusText}`);
+      }
+
+      toast.success('Workflow triggered', { description: `${wf.name} run started` });
+    } catch (err) {
+      console.error('Error triggering workflow:', err);
+      toast.error('Failed to trigger workflow');
+    }
   }
 
   const kpiCards = [
@@ -142,35 +227,34 @@ export default function WorkflowsContent() {
       note: `of ${workflows.length} total`,
     },
     {
-      key: 'wf-kpi-running',
-      label: 'Jobs Running',
-      value: activeJobs,
-      icon: PlayIcon,
-      iconBg: 'bg-blue-500/10',
-      iconClass: 'text-blue-400',
-      valueClass: 'text-blue-400',
-      note: 'across all workflows',
+      key: 'wf-kpi-paused',
+      label: 'Paused',
+      value: totalPaused,
+      icon: PauseIcon,
+      iconBg: 'bg-amber-500/10',
+      iconClass: 'text-amber-400',
+      valueClass: 'text-amber-400',
+      note: 'Waiting to resume',
     },
     {
-      key: 'wf-kpi-completed',
-      label: 'Completed Today',
-      value: completedToday,
+      key: 'wf-kpi-archived',
+      label: 'Archived',
+      value: totalArchived,
+      icon: ArrowsRightLeftIcon,
+      iconBg: 'bg-zinc-500/10',
+      iconClass: 'text-zinc-400',
+      valueClass: 'text-zinc-400',
+      note: 'Historical workflows',
+    },
+    {
+      key: 'wf-kpi-total',
+      label: 'Total Workflows',
+      value: workflows.length,
       icon: CalendarDaysIcon,
       iconBg: 'bg-primary/10',
       iconClass: 'text-primary',
       valueClass: 'text-foreground',
-      note: 'job executions',
-    },
-    {
-      key: 'wf-kpi-failed',
-      label: 'Failed Last Run',
-      value: failedWorkflows,
-      icon: ExclamationTriangleIcon,
-      iconBg: 'bg-red-500/10',
-      iconClass: 'text-red-400',
-      valueClass: 'text-red-400',
-      note: failedWorkflows > 0 ? 'Needs review' : 'All healthy',
-      alert: failedWorkflows > 0,
+      note: 'All workflows',
     },
   ];
 
@@ -181,26 +265,31 @@ export default function WorkflowsContent() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Workflows</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Manage multi-step job pipelines and orchestration rules
+            Manage scheduled workflows and job pipelines
           </p>
         </div>
-        <button onClick={() => setShowCreateModal(true)} className="btn-primary">
-          <PlusIcon width={16} height={16} />
-          New Workflow
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchWorkflows}
+            className="btn-secondary text-sm"
+            disabled={loading}
+          >
+            <ArrowPathIcon width={16} height={16} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+          <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+            <PlusIcon width={16} height={16} />
+            New Workflow
+          </button>
+        </div>
       </div>
 
-      {/* KPI cards — 4 cards, 4-col grid */}
+      {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-4">
         {kpiCards.map((card) => {
           const Icon = card.icon;
           return (
-            <div
-              key={card.key}
-              className={`card p-4 flex flex-col gap-3 ${
-                card.alert ? 'border-red-500/30 bg-red-500/5' : ''
-              }`}
-            >
+            <div key={card.key} className="card p-4 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="metric-label">{card.label}</span>
                 <div
@@ -235,7 +324,7 @@ export default function WorkflowsContent() {
           />
         </div>
         <div className="flex items-center gap-2">
-          {(['ALL', 'ACTIVE', 'PAUSED', 'DRAFT', 'ARCHIVED'] as const).map((s) => (
+          {(['ALL', 'ACTIVE', 'PAUSED', 'ARCHIVED'] as const).map((s) => (
             <button
               key={`wf-filter-${s}`}
               onClick={() => setStatusFilter(s)}
@@ -255,15 +344,27 @@ export default function WorkflowsContent() {
       </div>
 
       {/* Workflow cards grid */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="card p-5 animate-pulse">
+              <div className="h-4 bg-muted rounded w-3/4 mb-2" />
+              <div className="h-3 bg-muted rounded w-1/2 mb-4" />
+              <div className="h-3 bg-muted rounded w-full mb-2" />
+              <div className="h-3 bg-muted rounded w-2/3" />
+            </div>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="card p-16 flex flex-col items-center gap-4">
           <div className="w-14 h-14 rounded-xl bg-secondary border border-border flex items-center justify-center">
             <ArrowsRightLeftIcon width={28} height={28} className="text-muted-foreground" />
           </div>
           <p className="text-sm font-medium text-foreground">No workflows found</p>
           <p className="text-xs text-muted-foreground text-center max-w-xs">
-            No workflows match your current filters. Try adjusting the status filter or clearing
-            your search.
+            {search || statusFilter !== 'ALL'
+              ? 'No workflows match your current filters. Try adjusting the status filter or clearing your search.'
+              : 'Create your first workflow to get started.'}
           </p>
           <button
             onClick={() => {
@@ -287,13 +388,14 @@ export default function WorkflowsContent() {
           ))}
         </div>
       )}
+
       <CreateWorkflowModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        // onCreated={() => {
-        //   // Optionally refresh the workflow list
-        //   toast.success('Workflows refreshed');
-        // }}
+        onCreated={() => {
+          fetchWorkflows();
+          toast.success('Workflows refreshed');
+        }}
       />
     </div>
   );
@@ -309,26 +411,11 @@ function WorkflowCard({
   onTrigger: (id: string) => void;
 }) {
   const status = statusConfig[wf.status];
-  const trigger = triggerConfig[wf.triggerType];
-  const TriggerIcon = trigger.icon;
-
-  const lastRunStatusConfig = wf.lastRunStatus
-    ? {
-        WAITING: 'text-zinc-400',
-        PENDING: 'text-blue-400',
-        RUNNING: 'text-emerald-400',
-        COMPLETED: 'text-teal-400',
-        FAILED: 'text-amber-400',
-        DEAD: 'text-red-400',
-      }[wf.lastRunStatus]
-    : 'text-muted-foreground';
+  const schedule = scheduleTypeConfig[wf.scheduleType];
+  const ScheduleIcon = schedule.icon;
 
   return (
-    <div
-      className={`card p-5 flex flex-col gap-4 hover:border-border/80 transition-all duration-200 ${
-        wf.lastRunStatus === 'FAILED' || wf.lastRunStatus === 'DEAD' ? 'border-amber-500/20' : ''
-      }`}
-    >
+    <div className="card p-5 flex flex-col gap-4 hover:border-border/80 transition-all duration-200">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -342,93 +429,46 @@ function WorkflowCard({
             </span>
           </div>
           <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-            {wf.description}
+            {wf.description || 'No description'}
           </p>
         </div>
       </div>
 
-      {/* Meta row */}
+      {/* Schedule info */}
       <div className="flex items-center gap-3 flex-wrap">
         <span
-          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium border ${trigger.className}`}
+          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium border ${schedule.className}`}
         >
-          <TriggerIcon width={11} height={11} />
-          {trigger.label}
-          {wf.cronExpression && (
-            <span className="font-mono-data opacity-70 text-xs">{wf.cronExpression}</span>
-          )}
+          <ScheduleIcon width={11} height={11} />
+          {schedule.label}
+          <span className="font-mono-data opacity-70 text-xs ml-1">
+            {getScheduleDisplay(wf.scheduleType, wf.scheduleExpression)}
+          </span>
         </span>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ClockIcon width={11} height={11} />
-          Last run: <span className="text-foreground">{formatTs(wf.lastRunAt)}</span>
-          {wf.lastRunStatus && (
-            <span className={`font-medium ${lastRunStatusConfig}`}>({wf.lastRunStatus})</span>
-          )}
+          Created: <span className="text-foreground">{formatRelativeTime(wf.createdAt)}</span>
         </div>
       </div>
 
-      {/* Step chain */}
-      <div>
-        <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wide font-medium">
-          Steps ({wf.steps.length})
-        </p>
-        <div className="flex items-center gap-1 flex-wrap">
-          {wf.steps.map((step, i) => (
-            <React.Fragment key={`${wf.id}-step-${step.order}`}>
-              <div
-                className="flex items-center gap-1.5 bg-secondary border border-border rounded-md px-2 py-1"
-                title={step.jobType}
-              >
-                <span className="w-4 h-4 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-bold text-primary leading-none">{step.order}</span>
-                </span>
-                <span className="text-xs text-foreground truncate max-w-28" title={step.label}>
-                  {step.label}
-                </span>
-              </div>
-              {i < wf.steps.length - 1 && (
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  className="text-muted-foreground flex-shrink-0"
-                >
-                  <path
-                    d="M2 6h8M7 3l3 3-3 3"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
-            </React.Fragment>
-          ))}
+      {/* Time range if set */}
+      {(wf.startAt || wf.endAt) && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/30 rounded-lg px-3 py-1.5">
+          <CalendarIcon width={12} height={12} />
+          {wf.startAt && <span>From: {formatDate(wf.startAt)}</span>}
+          {wf.startAt && wf.endAt && <span>→</span>}
+          {wf.endAt && <span>To: {formatDate(wf.endAt)}</span>}
         </div>
-      </div>
+      )}
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border/50">
-        <div>
-          <p className="text-xs text-muted-foreground">Active Jobs</p>
-          <p
-            className={`font-mono-data text-sm font-semibold ${wf.activeJobs > 0 ? 'text-emerald-400' : 'text-muted-foreground'}`}
-          >
-            {wf.activeJobs}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Completed Today</p>
-          <p className="font-mono-data text-sm font-semibold text-foreground">
-            {wf.completedToday}
-          </p>
-        </div>
+      {/* Timezone */}
+      <div className="text-xs text-muted-foreground">
+        <span className="font-medium">Timezone:</span> {wf.timezone}
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 pt-1">
-        {wf.triggerType === 'MANUAL' && wf.status === 'ACTIVE' && (
+      <div className="flex items-center gap-2 pt-3 border-t border-border/50">
+        {wf.status === 'ACTIVE' && (
           <button
             onClick={() => onTrigger(wf.id)}
             className="btn-primary text-xs py-1.5 flex-1 justify-center"
@@ -437,7 +477,7 @@ function WorkflowCard({
             Run Now
           </button>
         )}
-        {wf.status !== 'ARCHIVED' && wf.status !== 'DRAFT' && (
+        {wf.status !== 'ARCHIVED' && (
           <button
             onClick={() => onTogglePause(wf.id)}
             className={`text-xs py-1.5 flex-1 justify-center ${
@@ -457,7 +497,9 @@ function WorkflowCard({
             )}
           </button>
         )}
-        <span className="text-xs text-muted-foreground font-mono-data ml-auto">{wf.id}</span>
+        <span className="text-xs text-muted-foreground font-mono-data ml-auto">
+          {wf.id.slice(0, 8)}...
+        </span>
       </div>
     </div>
   );
