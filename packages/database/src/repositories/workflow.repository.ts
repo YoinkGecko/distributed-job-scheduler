@@ -50,4 +50,10 @@ export class WorkflowRepository {
     const result = await executor.query("SELECT * from workflows where id = $1",[workflowId]);
     return snakeToCamel(result.rows[0]);
   }
+
+    async getWorkflows(){
+    const result = await pool.query("SELECT * from workflows;");
+    return snakeToCamel(result.rows);
+  }
+
 }

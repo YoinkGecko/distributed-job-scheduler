@@ -97,4 +97,8 @@ export class WorkflowService {
       throw new Error("Cron expression must contain 5 fields.");
     }
   }
+
+  async getWorkflows(){
+    return await this.workflowRepository.getWorkflows();
+  }
 }
