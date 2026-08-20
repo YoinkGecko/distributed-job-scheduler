@@ -101,4 +101,10 @@ export class WorkflowService {
   async getWorkflows(){
     return await this.workflowRepository.getWorkflows();
   }
+
+
+  async findById(workflowId: string){
+    const workflow = await this.workflowRepository.findById(workflowId);
+    return workflow;
+  }
 }

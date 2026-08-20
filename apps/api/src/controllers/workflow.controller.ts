@@ -19,3 +19,13 @@ export async function getWorkflows(req: Request, res: Response) {
 
   return res.status(201).json({length:workflows.length,workflows});
 }
+
+
+
+export async function getWorkflow(req: Request, res: Response) {
+  const { workflowId } = req.params;
+  const workflow = await workflowService.findById(workflowId as string);
+  return res.status(201).json({
+    workflow,
+  });
+}

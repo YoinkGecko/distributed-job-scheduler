@@ -9,11 +9,11 @@ import {
   WorkflowJobExecutionRepository,
 } from "@scheduler/database";
 import { RunWorkflowService } from "../services/runWorkflow.service.js";
-import {OutboxService} from "../services/outbox.service.js";
+import { OutboxService } from "../services/outbox.service.js";
 
 const jobRepository = new JobRepository();
 const workflowRepository = new WorkflowRepository();
-const outboxRepository = new OutboxRepository()
+const outboxRepository = new OutboxRepository();
 const workflowJobRepository = new WorkflowJobRepository();
 const workflowDependencyRepository = new WorkflowDependencyRepository();
 const workflowExecutionRepository = new WorkflowExecutionRepository();
