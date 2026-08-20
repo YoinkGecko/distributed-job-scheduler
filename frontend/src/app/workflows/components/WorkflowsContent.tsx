@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   ArrowsRightLeftIcon,
@@ -55,24 +56,26 @@ const statusConfig: Record<WorkflowStatus, { label: string; className: string; d
     },
   };
 
-const scheduleTypeConfig: Record<ScheduleType, { label: string; icon: React.ElementType; className: string }> =
-  {
-    ONCE: {
-      label: 'Once',
-      icon: CalendarIcon,
-      className: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-    },
-    INTERVAL: {
-      label: 'Interval',
-      icon: ArrowPathIcon,
-      className: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    },
-    CRON: {
-      label: 'Cron',
-      icon: ClockIcon,
-      className: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
-    },
-  };
+const scheduleTypeConfig: Record<
+  ScheduleType,
+  { label: string; icon: React.ElementType; className: string }
+> = {
+  ONCE: {
+    label: 'Once',
+    icon: CalendarIcon,
+    className: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  },
+  INTERVAL: {
+    label: 'Interval',
+    icon: ArrowPathIcon,
+    className: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  },
+  CRON: {
+    label: 'Cron',
+    icon: ClockIcon,
+    className: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
+  },
+};
 
 function formatDate(ts: string | null): string {
   if (!ts) return 'Never';
@@ -120,6 +123,7 @@ function getScheduleDisplay(scheduleType: ScheduleType, expression: string): str
 }
 
 export default function WorkflowsContent() {
+  const router = useRouter();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -164,9 +168,7 @@ export default function WorkflowsContent() {
 
   // Handle workflow card click
   const handleWorkflowClick = (workflowId: string) => {
-    toast.info('Workflow detail view coming soon! 🚀', {
-      description: `Workflow ${workflowId.slice(0, 8)}... will have a dedicated detail page`,
-    });
+    router.push(`/workflows/${workflowId}`);
   };
 
   const kpiCards = [
@@ -223,11 +225,7 @@ export default function WorkflowsContent() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={fetchWorkflows}
-            className="btn-secondary text-sm"
-            disabled={loading}
-          >
+          <button onClick={fetchWorkflows} className="btn-secondary text-sm" disabled={loading}>
             <ArrowPathIcon width={16} height={16} className={loading ? 'animate-spin' : ''} />
             Refresh
           </button>
@@ -333,11 +331,7 @@ export default function WorkflowsContent() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3 gap-5">
           {filtered.map((wf) => (
-            <WorkflowCard
-              key={wf.id}
-              workflow={wf}
-              onClick={handleWorkflowClick}
-            />
+            <WorkflowCard key={wf.id} workflow={wf} onClick={handleWorkflowClick} />
           ))}
         </div>
       )}
