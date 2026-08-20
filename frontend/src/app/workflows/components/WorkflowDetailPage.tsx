@@ -125,9 +125,53 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
       const response = await fetch(`http://localhost:3000/workflow/${workflowId}/jobs`);
       if (!response.ok) throw new Error('Failed to fetch workflow jobs');
       const data = await response.json();
-      setJobs(data.jobs || []);
+      
+      // API returns: [{ jobId: "..." }, { jobId: "..." }]
+      const jobIds = data.map((item: { jobId: string }) => item.jobId);
+      
+      if (jobIds.length === 0) {
+        setJobs([]);
+        return;
+      }
+
+      // Fetch full job details for each jobId
+      const jobDetailsPromises = jobIds.map(async (jobId: string) => {
+        try {
+          const response = await fetch(`http://localhost:3000/jobs/${jobId}`);
+          if (!response.ok) return null;
+          const jobData = await response.json();
+          const rawJob = jobData.job || jobData;
+          
+          // Map priority to string if it's a number
+          let priorityString = rawJob.priority || 0;
+          if (typeof priorityString === 'string') {
+            priorityString = parseInt(priorityString, 10) || 0;
+          }
+
+          return {
+            id: `workflow-job-${jobId}`,
+            workflowId: workflowId,
+            jobId: jobId,
+            job: {
+              id: jobId,
+              type: rawJob.type || 'unknown',
+              status: rawJob.status || 'WAITING',
+              priority: priorityString,
+            },
+            createdAt: new Date().toISOString(),
+          };
+        } catch (err) {
+          console.error(`Error fetching job ${jobId}:`, err);
+          return null;
+        }
+      });
+
+      const jobDetails = await Promise.all(jobDetailsPromises);
+      const validJobs = jobDetails.filter((job): job is NonNullable<typeof job> => job !== null);
+      setJobs(validJobs);
     } catch (err) {
       console.error('Error fetching workflow jobs:', err);
+      toast.error('Failed to load workflow jobs');
     }
   };
 
