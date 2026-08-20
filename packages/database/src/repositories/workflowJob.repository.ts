@@ -93,4 +93,10 @@ export class WorkflowJobRepository {
 
     return result.rows.map((row) => snakeToCamel(row));
   }
+
+  async getWorkflowJobs(workflowId: string){
+    const query = `SELECT job_id FROM workflow_jobs WHERE workflow_id = $1;`;
+    const result = await pool.query(query, [workflowId]);
+    return snakeToCamel(result.rows);
+  }
 }

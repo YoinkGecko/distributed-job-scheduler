@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   ChevronRightIcon,
@@ -96,6 +97,7 @@ function getStatusDot(status: string): string {
 }
 
 export default function WorkflowDetailPage({ workflowId }: Props) {
+  const router = useRouter();
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [jobs, setJobs] = useState<WorkflowJob[]>([]);
   const [dependencies, setDependencies] = useState<WorkflowDependency[]>([]);
@@ -110,7 +112,7 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
       const response = await fetch(`http://localhost:3000/workflow/${workflowId}`);
       if (!response.ok) throw new Error('Failed to fetch workflow');
       const data = await response.json();
-      setWorkflow(data);
+      setWorkflow(data.workflow || data);
     } catch (err) {
       console.error('Error fetching workflow:', err);
       toast.error('Failed to load workflow');
@@ -225,11 +227,24 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
               <span>{workflow.scheduleType} ({workflow.scheduleExpression})</span>
             </div>
             <div className="w-px h-4 bg-border" />
-            <button className="btn-secondary text-xs py-1">
+            <button 
+              onClick={() => {
+                fetchWorkflow();
+                fetchWorkflowJobs();
+                fetchDependencies();
+                toast.success('Refreshed');
+              }}
+              className="btn-secondary text-xs py-1"
+            >
               <ArrowPathIcon width={14} height={14} />
               Refresh
             </button>
-            <button className="btn-primary text-xs py-1">
+            <button 
+              onClick={() => {
+                toast.info('Run workflow coming soon! 🚀');
+              }}
+              className="btn-primary text-xs py-1"
+            >
               <PlayIcon width={14} height={14} />
               Run
             </button>

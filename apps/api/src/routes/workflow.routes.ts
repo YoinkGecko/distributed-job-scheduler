@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createWorkflow } from "../controllers/workflow.controller.js";
-import {addJobToWorkflow} from "../controllers/workflowJob.controller.js"
+import {addJobToWorkflow,getWorkflowJobs} from "../controllers/workflowJob.controller.js"
 import {createDependencies} from "../controllers/workflowDependency.controller.js"
 import {runWorkflow} from "../controllers/runWorkflow.controller.js"
 import {getWorkflows,getWorkflow} from "../controllers/workflow.controller.js"
@@ -13,6 +13,7 @@ router.get("/test", (req, res) => {
 
 router.get("/",getWorkflows);
 router.get("/:workflowId",getWorkflow);
+router.get("/:workflowId/jobs",getWorkflowJobs);
 router.post("/createWorkflow", createWorkflow);
 router.post("/:workflowId/jobs", addJobToWorkflow);
 router.post("/:workflowId/dependencies", createDependencies);

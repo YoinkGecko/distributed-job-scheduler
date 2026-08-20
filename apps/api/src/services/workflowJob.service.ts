@@ -59,4 +59,9 @@ export class WorkflowJobService {
       throw new Error(`Jobs already attached: ${attachedJobIds.join(", ")}`);
     }
   }
+
+  async getWorkflowJobs(workflowId: string){
+    const jobs = await this.workflowJobRepository.getWorkflowJobs(workflowId);
+    return jobs;
+  }
 }

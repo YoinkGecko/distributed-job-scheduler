@@ -36,3 +36,9 @@ export async function addJobToWorkflow(req: Request,res: Response,): Promise<voi
     workflowJob,
   });
 }
+
+export async function getWorkflowJobs(req: Request,res: Response,): Promise<void> {
+  const { workflowId } = req.params;
+  const jobs = await workflowJobService.getWorkflowJobs(workflowId as string);
+  res.status(201).json(jobs);
+}
