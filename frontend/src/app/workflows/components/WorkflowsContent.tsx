@@ -14,6 +14,7 @@ import {
   MagnifyingGlassIcon,
   CalendarIcon,
   ArrowPathIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import CreateWorkflowModal from './CreateWorkflowModal';
 
@@ -134,7 +135,6 @@ export default function WorkflowsContent() {
         throw new Error(`Failed to fetch workflows: ${response.statusText}`);
       }
       const data = await response.json();
-      // Response: { length: 6, workflows: [...] }
       const workflowList = data.workflows || [];
       setWorkflows(workflowList);
     } catch (err) {
@@ -162,58 +162,12 @@ export default function WorkflowsContent() {
   const totalArchived = workflows.filter((w) => w.status === 'ARCHIVED').length;
   const totalPaused = workflows.filter((w) => w.status === 'PAUSED').length;
 
-  async function togglePause(id: string) {
-    const wf = workflows.find((w) => w.id === id);
-    if (!wf) return;
-
-    const newStatus = wf.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
-
-    try {
-      const response = await fetch(`http://localhost:3000/workflow/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update workflow: ${response.statusText}`);
-      }
-
-      // Update local state
-      setWorkflows((prev) =>
-        prev.map((w) => (w.id === id ? { ...w, status: newStatus } : w))
-      );
-
-      toast.success(wf.status === 'ACTIVE' ? 'Workflow paused' : 'Workflow resumed', {
-        description: wf.name,
-      });
-    } catch (err) {
-      console.error('Error toggling workflow:', err);
-      toast.error('Failed to update workflow status');
-    }
-  }
-
-  async function handleTriggerManual(id: string) {
-    const wf = workflows.find((w) => w.id === id);
-    if (!wf) return;
-
-    try {
-      const response = await fetch(`http://localhost:3000/workflow/${id}/trigger`, {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to trigger workflow: ${response.statusText}`);
-      }
-
-      toast.success('Workflow triggered', { description: `${wf.name} run started` });
-    } catch (err) {
-      console.error('Error triggering workflow:', err);
-      toast.error('Failed to trigger workflow');
-    }
-  }
+  // Handle workflow card click
+  const handleWorkflowClick = (workflowId: string) => {
+    toast.info('Workflow detail view coming soon! 🚀', {
+      description: `Workflow ${workflowId.slice(0, 8)}... will have a dedicated detail page`,
+    });
+  };
 
   const kpiCards = [
     {
@@ -382,8 +336,7 @@ export default function WorkflowsContent() {
             <WorkflowCard
               key={wf.id}
               workflow={wf}
-              onTogglePause={togglePause}
-              onTrigger={handleTriggerManual}
+              onClick={handleWorkflowClick}
             />
           ))}
         </div>
@@ -403,19 +356,20 @@ export default function WorkflowsContent() {
 
 function WorkflowCard({
   workflow: wf,
-  onTogglePause,
-  onTrigger,
+  onClick,
 }: {
   workflow: Workflow;
-  onTogglePause: (id: string) => void;
-  onTrigger: (id: string) => void;
+  onClick: (id: string) => void;
 }) {
   const status = statusConfig[wf.status];
   const schedule = scheduleTypeConfig[wf.scheduleType];
   const ScheduleIcon = schedule.icon;
 
   return (
-    <div className="card p-5 flex flex-col gap-4 hover:border-border/80 transition-all duration-200">
+    <div
+      className="card p-5 flex flex-col gap-4 hover:border-border/80 transition-all duration-200 cursor-pointer group"
+      onClick={() => onClick(wf.id)}
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -432,6 +386,11 @@ function WorkflowCard({
             {wf.description || 'No description'}
           </p>
         </div>
+        <ChevronRightIcon
+          width={16}
+          height={16}
+          className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-1"
+        />
       </div>
 
       {/* Schedule info */}
@@ -466,40 +425,9 @@ function WorkflowCard({
         <span className="font-medium">Timezone:</span> {wf.timezone}
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-2 pt-3 border-t border-border/50">
-        {wf.status === 'ACTIVE' && (
-          <button
-            onClick={() => onTrigger(wf.id)}
-            className="btn-primary text-xs py-1.5 flex-1 justify-center"
-          >
-            <PlayIcon width={13} height={13} />
-            Run Now
-          </button>
-        )}
-        {wf.status !== 'ARCHIVED' && (
-          <button
-            onClick={() => onTogglePause(wf.id)}
-            className={`text-xs py-1.5 flex-1 justify-center ${
-              wf.status === 'ACTIVE' ? 'btn-secondary' : 'btn-primary'
-            }`}
-          >
-            {wf.status === 'ACTIVE' ? (
-              <>
-                <PauseIcon width={13} height={13} />
-                Pause
-              </>
-            ) : (
-              <>
-                <PlayIcon width={13} height={13} />
-                Resume
-              </>
-            )}
-          </button>
-        )}
-        <span className="text-xs text-muted-foreground font-mono-data ml-auto">
-          {wf.id.slice(0, 8)}...
-        </span>
+      {/* Workflow ID */}
+      <div className="text-xs text-muted-foreground font-mono-data pt-1 border-t border-border/50">
+        ID: {wf.id}
       </div>
     </div>
   );
