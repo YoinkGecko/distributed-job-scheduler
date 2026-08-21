@@ -10,13 +10,8 @@ import {
   ArrowPathIcon,
   ClockIcon,
   MagnifyingGlassIcon,
-  PlusIcon,
   XMarkIcon,
   Square2StackIcon,
-  CircleStackIcon,
-  EnvelopeIcon,
-  CreditCardIcon,
-  DocumentTextIcon,
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import WorkflowCanvas from './WorkflowCanvas';
@@ -93,7 +88,7 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
   const [dependencies, setDependencies] = useState<WorkflowDependency[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-  const [showJobPalette, setShowJobPalette] = useState(true);
+  const [showLeftPanel, setShowLeftPanel] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch workflow details
@@ -116,7 +111,6 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
       if (!response.ok) throw new Error('Failed to fetch workflow jobs');
       const data = await response.json();
 
-      // API returns: [{ jobId: "..." }, { jobId: "..." }]
       const jobIds = data.map((item: { jobId: string }) => item.jobId);
 
       if (jobIds.length === 0) {
@@ -124,7 +118,6 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
         return;
       }
 
-      // Fetch full job details for each jobId
       const jobDetailsPromises = jobIds.map(async (jobId: string) => {
         try {
           const response = await fetch(`http://localhost:3000/jobs/${jobId}`);
@@ -132,7 +125,6 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
           const jobData = await response.json();
           const rawJob = jobData.job || jobData;
 
-          // Map priority to string if it's a number
           let priorityString = rawJob.priority || 0;
           if (typeof priorityString === 'string') {
             priorityString = parseInt(priorityString, 10) || 0;
@@ -159,7 +151,6 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
       const jobDetails = await Promise.all(jobDetailsPromises);
       const validJobs = jobDetails.filter((job): job is NonNullable<typeof job> => job !== null);
       setJobs(validJobs);
-      console.log(validJobs);
     } catch (err) {
       console.error('Error fetching workflow jobs:', err);
       toast.error('Failed to load workflow jobs');
@@ -187,12 +178,6 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
     loadData();
   }, [workflowId]);
 
-  const handleJobSelect = (jobType: string) => {
-    toast.info('Add job to workflow', {
-      description: `Adding "${jobType}" - coming soon!`,
-    });
-  };
-
   const handleNodeClick = (jobId: string) => {
     setSelectedJobId(jobId);
   };
@@ -206,7 +191,6 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
     );
   }
 
-  // Filter jobs based on search
   const filteredJobs = jobs.filter(
     (job) =>
       job.job.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -301,18 +285,17 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel - Workflow Jobs */}
-        {/* Left Panel - Workflow Jobs */}
         <div
-          className={`flex-shrink-0 border-r border-border bg-secondary/20 overflow-y-auto transition-all duration-300 ${showJobPalette ? 'w-72' : 'w-12'}`}
+          className={`flex-shrink-0 border-r border-border bg-secondary/20 overflow-y-auto transition-all duration-300 ${showLeftPanel ? 'w-72' : 'w-12'}`}
         >
           <div className="p-3 flex items-center justify-between border-b border-border">
-            {showJobPalette ? (
+            {showLeftPanel ? (
               <>
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Jobs ({jobs.length})
                 </span>
                 <button
-                  onClick={() => setShowJobPalette(false)}
+                  onClick={() => setShowLeftPanel(false)}
                   className="p-1 rounded hover:bg-secondary text-muted-foreground"
                 >
                   <XMarkIcon width={16} height={16} />
@@ -320,7 +303,7 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
               </>
             ) : (
               <button
-                onClick={() => setShowJobPalette(true)}
+                onClick={() => setShowLeftPanel(true)}
                 className="p-1 rounded hover:bg-secondary text-muted-foreground"
               >
                 <Square2StackIcon width={20} height={20} />
@@ -328,7 +311,7 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
             )}
           </div>
 
-          {showJobPalette && (
+          {showLeftPanel && (
             <div className="p-3 space-y-3">
               {/* Search */}
               <div className="relative">
