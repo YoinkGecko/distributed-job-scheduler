@@ -10,6 +10,7 @@ import {
   ArrowPathIcon,
   ClockIcon,
   MagnifyingGlassIcon,
+  PlusIcon,
   XMarkIcon,
   Square2StackIcon,
   Cog6ToothIcon,
@@ -182,6 +183,12 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
     setSelectedJobId(jobId);
   };
 
+  const addJobToWorkflow = () => {
+    toast.info('Add job to workflow', {
+      description: 'This will open a modal to add existing jobs to the workflow',
+    });
+  };
+
   if (loading) {
     return (
       <div className="p-12 text-center text-muted-foreground flex items-center justify-center gap-2">
@@ -294,12 +301,21 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Jobs ({jobs.length})
                 </span>
-                <button
-                  onClick={() => setShowLeftPanel(false)}
-                  className="p-1 rounded hover:bg-secondary text-muted-foreground"
-                >
-                  <XMarkIcon width={16} height={16} />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={addJobToWorkflow}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors text-xs font-medium"
+                  >
+                    <PlusIcon width={14} height={14} />
+                    Add Job
+                  </button>
+                  <button
+                    onClick={() => setShowLeftPanel(false)}
+                    className="p-1 rounded hover:bg-secondary text-muted-foreground"
+                  >
+                    <XMarkIcon width={16} height={16} />
+                  </button>
+                </div>
               </>
             ) : (
               <button
@@ -342,6 +358,15 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
                   <p className="text-xs text-muted-foreground">
                     {searchQuery ? 'No jobs match your search' : 'No jobs in this workflow'}
                   </p>
+                  {!searchQuery && (
+                    <button
+                      onClick={addJobToWorkflow}
+                      className="mt-3 text-xs text-primary hover:text-primary/80 transition-colors flex items-center gap-1 mx-auto"
+                    >
+                      <PlusIcon width={14} height={14} />
+                      Add your first job
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-1.5">
