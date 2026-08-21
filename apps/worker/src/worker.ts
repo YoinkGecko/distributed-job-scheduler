@@ -65,6 +65,7 @@ async function startWorker() {
       if (!response) continue;
 
       const [[, entries]] = response;
+      console.log(entries);
 
       for (const [messageId, fields] of entries) {
         const jobData: Record<string, string> = {};

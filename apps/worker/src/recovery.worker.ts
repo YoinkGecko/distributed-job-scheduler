@@ -5,7 +5,7 @@ import { isHeartbeatStale } from "./utility/utilityFunction.js";
 
 const STREAM_KEY = "jobs-stream";
 const GROUP_NAME = "workers";
-const CONSUMER_NAME =  process.env.CONSUMER_NAME!;
+const CONSUMER_NAME = process.env.CONSUMER_NAME!;
 
 const jobRepository = new JobRepository();
 
@@ -33,16 +33,17 @@ async function startRecoveryWorker() {
           jobData[fields[i]] = fields[i + 1];
         }
 
-        // FIX 1: Safeguard against malformed stream payloads without a jobId
-        if (!jobData.jobId) {
+        // FIX 1: Safeguard against malformed stream payloads without a entityId
+        console.log(jobData); //jobData = { entityType: 'JOB', entityId: 'fbcde124-17c2-4f76-9623-a8e0e5b073ed' }
+        if (!jobData.entityId) {
           console.log(
-            `[${CONSUMER_NAME}] Missing jobId in message ${messageId}`,
+            `[${CONSUMER_NAME}] Missing entityId in message ${messageId}`,
           );
           await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
           continue;
         }
 
-        const job = await jobRepository.findById(jobData.jobId);
+        const job = await jobRepository.findById(jobData.entityId);
 
         if (!job) {
           console.log("Job not found in database");
@@ -84,7 +85,16 @@ async function startRecoveryWorker() {
 
         // ACK the old stuck message from PEL before issuing a new XADD
         await redis.xack(STREAM_KEY, GROUP_NAME, messageId);
-        await redis.xadd(STREAM_KEY, "*", "jobId", job.id);
+        if (jobData.entityType == "JOB") {
+          await redis.xadd(
+            STREAM_KEY,
+            "*",
+            "entityType",
+            "JOB",
+            "entityId",
+            job.id,
+          );
+        }
 
         console.log(`[${CONSUMER_NAME}] Requeued Job ${job.id}`);
       }
