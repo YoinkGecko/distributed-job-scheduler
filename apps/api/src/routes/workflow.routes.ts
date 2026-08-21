@@ -14,6 +14,8 @@ router.get("/test", (req, res) => {
 router.get("/",getWorkflows);
 router.get("/:workflowId",getWorkflow);
 router.get("/:workflowId/jobs",getWorkflowJobs);
+//router.get("/:workflowId/dependencies", getDependencies);
+
 router.post("/createWorkflow", createWorkflow);
 router.post("/:workflowId/jobs", addJobToWorkflow);
 router.post("/:workflowId/dependencies", createDependencies);

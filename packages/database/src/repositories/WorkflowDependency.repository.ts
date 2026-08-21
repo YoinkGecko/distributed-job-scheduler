@@ -88,4 +88,10 @@ export class WorkflowDependencyRepository {
 
     return snakeToCamel(result.rows.map((row) => row.child_workflow_job_id));
   }
+
+  async getDependencies(workflowId:string){
+    const query = ``;
+    const dependencies = await pool.query('a');
+
+  }
 }
