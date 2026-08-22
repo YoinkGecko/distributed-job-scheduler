@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -11,10 +11,12 @@ import ReactFlow, {
   MarkerType,
   NodeTypes,
 } from 'reactflow';
+//import 'reactflow/dist/style.css';
 import { Square2StackIcon } from '@heroicons/react/24/outline';
 
 interface WorkflowJob {
   id: string;
+  workflowId: string;
   jobId: string;
   job: {
     id: string;
@@ -28,7 +30,10 @@ interface WorkflowJob {
 interface WorkflowDependency {
   id: string;
   parentWorkflowJobId: string;
+  parentJobId: string;      // ← This is the job ID from jobs table
   childWorkflowJobId: string;
+  childJobId: string;       // ← This is the job ID from jobs table
+  createdAt: string;
 }
 
 interface Props {
@@ -43,12 +48,42 @@ interface Props {
 // Custom Job Node Component
 function JobNode({ data, selected }: { data: any; selected?: boolean }) {
   const statusColors: Record<string, { bg: string; border: string; text: string; dot: string }> = {
-    WAITING: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-400', dot: 'bg-amber-400' },
-    PENDING: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400', dot: 'bg-blue-400' },
-    RUNNING: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', text: 'text-emerald-400', dot: 'bg-emerald-400 animate-pulse' },
-    COMPLETED: { bg: 'bg-zinc-500/10', border: 'border-zinc-500/30', text: 'text-zinc-400', dot: 'bg-zinc-400' },
-    FAILED: { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-400', dot: 'bg-red-400' },
-    DEAD: { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-400', dot: 'bg-red-400' },
+    WAITING: {
+      bg: 'bg-amber-500/10',
+      border: 'border-amber-500/30',
+      text: 'text-amber-400',
+      dot: 'bg-amber-400',
+    },
+    PENDING: {
+      bg: 'bg-blue-500/10',
+      border: 'border-blue-500/30',
+      text: 'text-blue-400',
+      dot: 'bg-blue-400',
+    },
+    RUNNING: {
+      bg: 'bg-emerald-500/10',
+      border: 'border-emerald-500/30',
+      text: 'text-emerald-400',
+      dot: 'bg-emerald-400 animate-pulse',
+    },
+    COMPLETED: {
+      bg: 'bg-zinc-500/10',
+      border: 'border-zinc-500/30',
+      text: 'text-zinc-400',
+      dot: 'bg-zinc-400',
+    },
+    FAILED: {
+      bg: 'bg-red-500/10',
+      border: 'border-red-500/30',
+      text: 'text-red-400',
+      dot: 'bg-red-400',
+    },
+    DEAD: {
+      bg: 'bg-red-500/10',
+      border: 'border-red-500/30',
+      text: 'text-red-400',
+      dot: 'bg-red-400',
+    },
   };
 
   const colors = statusColors[data.status] || statusColors.WAITING;
@@ -66,7 +101,9 @@ function JobNode({ data, selected }: { data: any; selected?: boolean }) {
           <span className="text-xs font-mono-data text-muted-foreground truncate max-w-[80px]">
             {data.jobId?.slice(0, 8) || '---'}
           </span>
-          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${colors.bg} ${colors.border} ${colors.text}`}>
+          <span
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${colors.bg} ${colors.border} ${colors.text}`}
+          >
             <span className={`w-1.5 h-1.5 rounded-full ${colors.dot}`} />
             {data.status}
           </span>
@@ -86,11 +123,7 @@ const nodeTypes: NodeTypes = {
   jobNode: JobNode,
 };
 
-export default function WorkflowCanvas({
-  jobs,
-  dependencies,
-  onNodeClick,
-}: Props) {
+export default function WorkflowCanvas({ jobs, dependencies, onNodeClick }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -115,30 +148,62 @@ export default function WorkflowCanvas({
     setNodes(jobNodes);
   }, [jobs, setNodes]);
 
-  // Build edges from dependencies
+  // Build edges from dependencies using job IDs (parentJobId → childJobId)
   useEffect(() => {
-    const dependencyEdges: Edge[] = dependencies.map((dep) => ({
-      id: dep.id,
-      source: dep.parentWorkflowJobId,
-      target: dep.childWorkflowJobId,
-      type: 'smoothstep',
-      animated: true,
-      markerEnd: {
-        type: MarkerType.ArrowClosed,
-        color: '#60a5fa',
-      },
-      style: {
-        stroke: '#60a5fa',
-        strokeWidth: 2,
-      },
-    }));
+    if (dependencies.length === 0 || jobs.length === 0) {
+      setEdges([]);
+      return;
+    }
+
+    // Create a map from jobId to workflowJobId (node ID)
+    const jobIdToWorkflowJobId = new Map<string, string>();
+    jobs.forEach(job => {
+      jobIdToWorkflowJobId.set(job.jobId, job.id);
+    });
+
+    const dependencyEdges: Edge[] = [];
+
+    dependencies.forEach((dep) => {
+      // Find the workflow job IDs using the job IDs from the dependency
+      const sourceWorkflowJobId = jobIdToWorkflowJobId.get(dep.parentJobId);
+      const targetWorkflowJobId = jobIdToWorkflowJobId.get(dep.childJobId);
+
+      // Only create edge if both jobs exist in the workflow
+      if (sourceWorkflowJobId && targetWorkflowJobId) {
+        dependencyEdges.push({
+          id: dep.id,
+          source: sourceWorkflowJobId,
+          target: targetWorkflowJobId,
+          type: 'smoothstep',
+          animated: true,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: '#60a5fa',
+          },
+          style: {
+            stroke: '#60a5fa',
+            strokeWidth: 2,
+          },
+        });
+      } else {
+        console.warn('⚠️ Could not find workflow job for dependency:', {
+          parentJobId: dep.parentJobId,
+          childJobId: dep.childJobId,
+          parentWorkflowJobId: sourceWorkflowJobId,
+          childWorkflowJobId: targetWorkflowJobId,
+        });
+      }
+    });
 
     setEdges(dependencyEdges);
-  }, [dependencies, setEdges]);
+  }, [dependencies, jobs, setEdges]);
 
-  const onNodeClickHandler = useCallback((event: React.MouseEvent, node: Node) => {
-    onNodeClick(node.id);
-  }, [onNodeClick]);
+  const onNodeClickHandler = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      onNodeClick(node.id);
+    },
+    [onNodeClick]
+  );
 
   if (jobs.length === 0) {
     return (
@@ -146,7 +211,7 @@ export default function WorkflowCanvas({
         <div className="text-center">
           <Square2StackIcon width={48} height={48} className="mx-auto mb-3 opacity-30" />
           <p className="text-sm">No jobs in this workflow</p>
-          <p className="text-xs mt-1">Add jobs from the job palette on the left</p>
+          <p className="text-xs mt-1">Add jobs using the "Add Job" button</p>
         </div>
       </div>
     );

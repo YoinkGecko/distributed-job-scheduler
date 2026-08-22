@@ -15,7 +15,6 @@ import {
   XMarkIcon,
   Square2StackIcon,
   Cog6ToothIcon,
-  CheckIcon,
 } from '@heroicons/react/24/outline';
 import WorkflowCanvas from './WorkflowCanvas';
 
@@ -53,7 +52,10 @@ interface WorkflowJob {
 interface WorkflowDependency {
   id: string;
   parentWorkflowJobId: string;
+  parentJobId: string;
   childWorkflowJobId: string;
+  childJobId: string;
+  createdAt: string;
 }
 
 interface Props {
@@ -115,17 +117,49 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
       if (!response.ok) throw new Error('Failed to fetch workflow jobs');
       const data = await response.json();
 
-      const jobIds = data.map((item: { jobId: string }) => item.jobId);
+      console.log('📦 Raw workflow jobs response:', data);
 
-      if (jobIds.length === 0) {
+      // The API returns an array of job objects
+      // Each object should have: { id: "workflow-job-id", jobId: "original-job-id" }
+      // If the API returns just the job IDs without workflow IDs, we need to handle that
+      const jobList = Array.isArray(data) ? data : data.jobs || [];
+
+      if (jobList.length === 0) {
         setJobs([]);
         return;
       }
 
-      const jobDetailsPromises = jobIds.map(async (jobId: string) => {
+      // Log the first item to see the structure
+      if (jobList.length > 0) {
+        console.log('First job item structure:', jobList[0]);
+        console.log('Keys in first item:', Object.keys(jobList[0]));
+      }
+
+      const jobDetailsPromises = jobList.map(async (item: any, index: number) => {
+        // Try to get the job ID from various possible field names
+        const jobId = item.jobId || item.job_id || item.id || item.job;
+        
+        // Get the workflow job ID - this is the ID that matches parentWorkflowJobId/childWorkflowJobId
+        // If the API returns an 'id' field, use it. Otherwise, generate one.
+        let workflowJobId = item.id || item.workflowJobId || item.workflow_job_id;
+        
+        // If no workflow job ID is provided, generate one using the job ID and index
+        if (!workflowJobId) {
+          workflowJobId = `workflow-job-${jobId || index}`;
+          console.warn(`⚠️ No workflow job ID found, using generated ID: ${workflowJobId}`);
+        }
+
+        if (!jobId) {
+          console.warn(`⚠️ No job ID found for item:`, item);
+          return null;
+        }
+
         try {
           const response = await fetch(`http://localhost:3000/jobs/${jobId}`);
-          if (!response.ok) return null;
+          if (!response.ok) {
+            console.warn(`⚠️ Failed to fetch job details for ${jobId}`);
+            return null;
+          }
           const jobData = await response.json();
           const rawJob = jobData.job || jobData;
 
@@ -135,7 +169,7 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
           }
 
           return {
-            id: `workflow-job-${jobId}`,
+            id: workflowJobId,
             workflowId: workflowId,
             jobId: jobId,
             job: {
@@ -147,16 +181,18 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
             createdAt: new Date().toISOString(),
           };
         } catch (err) {
-          console.error(`Error fetching job ${jobId}:`, err);
+          console.error(`❌ Error fetching job ${jobId}:`, err);
           return null;
         }
       });
 
       const jobDetails = await Promise.all(jobDetailsPromises);
       const validJobs = jobDetails.filter((job): job is NonNullable<typeof job> => job !== null);
+      
+      console.log('✅ Jobs with IDs:', validJobs);
       setJobs(validJobs);
     } catch (err) {
-      console.error('Error fetching workflow jobs:', err);
+      console.error('❌ Error fetching workflow jobs:', err);
       toast.error('Failed to load workflow jobs');
     }
   };
@@ -167,9 +203,12 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
       const response = await fetch(`http://localhost:3000/workflow/${workflowId}/dependencies`);
       if (!response.ok) throw new Error('Failed to fetch dependencies');
       const data = await response.json();
+
       setDependencies(data.dependencies || []);
+      console.log('📦 Dependencies:', data.dependencies || []);
     } catch (err) {
       console.error('Error fetching dependencies:', err);
+      toast.error('Failed to load dependencies');
     }
   };
 
@@ -181,6 +220,25 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
     };
     loadData();
   }, [workflowId]);
+
+  // Debug: Check if job IDs match dependency IDs
+  useEffect(() => {
+    if (jobs.length > 0 && dependencies.length > 0) {
+      const jobIds = new Set(jobs.map((j) => j.id));
+      const depIds = new Set([
+        ...dependencies.map((d) => d.parentWorkflowJobId),
+        ...dependencies.map((d) => d.childWorkflowJobId),
+      ]);
+      const missing = [...depIds].filter((id) => !jobIds.has(id));
+      if (missing.length > 0) {
+        console.warn('⚠️ Missing jobs for dependencies:', missing);
+        console.warn('Available job IDs:', [...jobIds]);
+        console.warn('Dependency IDs:', [...depIds]);
+      } else {
+        console.log('✅ All dependency IDs match job IDs');
+      }
+    }
+  }, [jobs, dependencies]);
 
   const handleNodeClick = (jobId: string) => {
     setSelectedJobId(jobId);
@@ -371,14 +429,14 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  {filteredJobs.map((job) => {
+                  {filteredJobs.map((job, index) => {
                     const statusColor = getStatusColor(job.job.status);
                     const statusDot = getStatusDot(job.job.status);
                     const isSelected = selectedJobId === job.id;
 
                     return (
                       <button
-                        key={job.id}
+                        key={job.id || `job-${index}`}
                         onClick={() => handleNodeClick(job.id)}
                         className={`w-full text-left px-3 py-2 rounded-lg transition-all duration-200 border ${
                           isSelected
@@ -402,7 +460,7 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
                             P{job.job.priority}
                           </span>
                           <span className="text-[10px] text-muted-foreground font-mono-data truncate">
-                            {job.jobId.slice(0, 12)}...
+                            {job.jobId?.slice(0, 12) || '---'}...
                           </span>
                         </div>
                       </button>
