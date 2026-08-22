@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import AddJobToWorkflowModal from './AddJobToWorkflowModal';
 import {
   ChevronRightIcon,
   PlayIcon,
@@ -14,6 +15,7 @@ import {
   XMarkIcon,
   Square2StackIcon,
   Cog6ToothIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline';
 import WorkflowCanvas from './WorkflowCanvas';
 
@@ -91,6 +93,7 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [showLeftPanel, setShowLeftPanel] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAddJobModal, setShowAddJobModal] = useState(false);
 
   // Fetch workflow details
   const fetchWorkflow = async () => {
@@ -184,9 +187,7 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
   };
 
   const addJobToWorkflow = () => {
-    toast.info('Add job to workflow', {
-      description: 'This will open a modal to add existing jobs to the workflow',
-    });
+    setShowAddJobModal(true);
   };
 
   if (loading) {
@@ -532,6 +533,18 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
           )}
         </div>
       </div>
+
+      <AddJobToWorkflowModal
+        isOpen={showAddJobModal}
+        onClose={() => setShowAddJobModal(false)}
+        workflowId={workflowId}
+        existingJobIds={jobs.map((j) => j.jobId)}
+        onJobsAdded={() => {
+          fetchWorkflowJobs();
+          fetchDependencies();
+          toast.success('Jobs refreshed');
+        }}
+      />
     </div>
   );
 }
