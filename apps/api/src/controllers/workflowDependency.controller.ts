@@ -29,3 +29,19 @@ export async function createDependencies(req: Request, res: Response) {
   await workflowDependencyService.createDependencies(workflowId, dependencies);
   res.status(201).json({ message: "Dependencies created successfully" });
 }
+
+export async function getWorkflowDependencies(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const { workflowId } = req.params;
+
+  const dependencies = await workflowDependencyService.getWorkflowDependencies(
+    workflowId as string,
+  );
+
+  res.status(200).json({
+    workflowId,
+    dependencies,
+  });
+}

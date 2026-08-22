@@ -2,7 +2,7 @@ import {
   WorkflowStatus,
   CreateWorkflowDependencyInput,
   WorkflowJobDependency,
-  JobStatus
+  JobStatus,
 } from "@scheduler/types";
 import {
   WorkflowRepository,
@@ -10,7 +10,7 @@ import {
   WorkflowDependencyRepository,
   WorkflowJobExecutionRepository,
   PoolClient,
-  pool
+  pool,
 } from "@scheduler/database";
 import crypto from "crypto";
 import { OutboxService } from "../services/outbox.service.js";
@@ -223,5 +223,11 @@ export class WorkflowDependencyService {
     } finally {
       client.release();
     }
+  }
+
+  async getWorkflowDependencies(workflowId: string) {
+    return await this.workflowDependencyRepository.findDependenciesByWorkflowId(
+      workflowId,
+    );
   }
 }

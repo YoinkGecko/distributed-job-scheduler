@@ -1,5 +1,5 @@
 import { pool } from "../../pool.js";
-import { snakeToCamel,PoolClient } from "@scheduler/database";
+import { snakeToCamel, PoolClient } from "@scheduler/database";
 import { WorkflowJobDependency } from "@scheduler/types";
 
 export class WorkflowDependencyRepository {
@@ -76,7 +76,10 @@ export class WorkflowDependencyRepository {
     return result.rows.map((row) => snakeToCamel(row));
   }
 
-  async findChildren(parentWorkflowJobId: string, client?: PoolClient,): Promise<string[]> {
+  async findChildren(
+    parentWorkflowJobId: string,
+    client?: PoolClient,
+  ): Promise<string[]> {
     const executor = client ?? pool;
     const query = `
     SELECT child_workflow_job_id
@@ -89,9 +92,26 @@ export class WorkflowDependencyRepository {
     return snakeToCamel(result.rows.map((row) => row.child_workflow_job_id));
   }
 
-  async getDependencies(workflowId:string){
-    const query = ``;
-    const dependencies = await pool.query('a');
+  async findDependenciesByWorkflowId(workflowId: string) {
+    const query = `
+      SELECT
+        d.id,
+        d.parent_workflow_job_id,
+        parent.job_id AS parent_job_id,
+        d.child_workflow_job_id,
+        child.job_id AS child_job_id,
+        d.created_at
+      FROM workflow_job_dependencies d
+      JOIN workflow_jobs parent
+        ON parent.id = d.parent_workflow_job_id
+      JOIN workflow_jobs child
+        ON child.id = d.child_workflow_job_id
+      WHERE parent.workflow_id = $1
+        AND child.workflow_id = $1
+      ORDER BY d.created_at ASC;
+    `;
 
+    const result = await pool.query(query, [workflowId]);
+    return result.rows.map((row) => snakeToCamel(row));
   }
 }
