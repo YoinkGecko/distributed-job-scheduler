@@ -123,27 +123,27 @@ export default function AddJobToWorkflowModal({
 
     setIsSubmitting(true);
     try {
-      // For now, just show a toast with the selected jobs
-      const selectedJobs = jobs.filter(j => selectedJobIds.has(j.id));
-      const jobTypes = selectedJobs.map(j => j.type).join(', ');
+      const jobIdsArray = Array.from(selectedJobIds);
       
-      toast.info('Adding jobs to workflow - Coming Soon! 🚀', {
-        description: `Selected: ${selectedJobs.length} job(s) - ${jobTypes}`,
-        duration: 5000,
+      const response = await fetch(`http://localhost:3000/workflow/${workflowId}/jobs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jobIds: jobIdsArray,
+        }),
       });
 
-      // TODO: API call to add jobs to workflow
-      // const response = await fetch(`http://localhost:3000/workflow/${workflowId}/jobs`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     jobIds: Array.from(selectedJobIds),
-      //   }),
-      // });
-      // if (!response.ok) throw new Error('Failed to add jobs');
+      if (!response.ok) {
+        throw new Error(`Failed to add jobs: ${response.statusText}`);
+      }
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await response.json();
+      
+      toast.success(`${jobIdsArray.length} job(s) added to workflow!`, {
+        description: `Successfully added to workflow`,
+      });
 
       setSelectedJobIds(new Set());
       onJobsAdded();
