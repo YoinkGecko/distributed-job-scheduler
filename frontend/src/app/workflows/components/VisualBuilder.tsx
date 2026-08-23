@@ -51,6 +51,20 @@ interface JobDetail {
   lastError: string | null;
 }
 
+interface Dependency {
+  id: string;
+  parentWorkflowJobId: string;
+  parentJobId: string;
+  childWorkflowJobId: string;
+  childJobId: string;
+  createdAt: string;
+}
+
+interface WorkflowDependenciesResponse {
+  workflowId: string;
+  dependencies: Dependency[];
+}
+
 // 1. Custom Node UI Engine
 const NodeCard = ({ data, selected }: NodeProps) => {
   const getIcon = (type: string) => {
@@ -238,12 +252,14 @@ const initialEdges: Edge[] = [
 export default function VisualBuilder({ workflowId, workflowName }: Props) {
   const [workflowJobs, setWorkflowJobs] = useState<string[]>([]);
   const [jobDetails, setJobDetails] = useState<JobDetail[]>([]);
+  const [dependencies, setDependencies] = useState<Dependency[]>([]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [isRunning, setIsRunning] = useState(false);
 
   useEffect(() => {
     fetchWorkflowJobs();
+    fetchDependencies(workflowId);
   }, []);
 
   const nodeTypes = useMemo(() => ({ customJob: NodeCard }), []);
@@ -266,6 +282,15 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
      console.log("JOB details", details);
 
     setJobDetails(details);
+  };
+
+  const fetchDependencies = async (id: string) => {
+      const response = await fetch(`http://localhost:3000/workflow/${id}/dependencies`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.statusText}`);
+      }
+      const data: WorkflowDependenciesResponse = await response.json();
+      setDependencies(data.dependencies);
   };
 
   const onConnect = useCallback(
