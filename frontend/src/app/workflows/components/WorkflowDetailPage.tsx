@@ -18,6 +18,7 @@ import {
   InformationCircleIcon,
   HashtagIcon,
   CalendarDaysIcon,
+  Squares2X2Icon,
 } from '@heroicons/react/24/outline';
 
 type WorkflowStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
@@ -100,6 +101,7 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'details' | 'builder'>('details');
 
   const fetchWorkflow = async () => {
     try {
@@ -114,7 +116,6 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
       const data = await response.json();
       console.log('📦 Workflow data:', data);
       
-      // Handle response format: { workflows: [...] } or direct object
       let workflowData = data;
       if (data.workflows && Array.isArray(data.workflows) && data.workflows.length > 0) {
         workflowData = data.workflows[0];
@@ -258,133 +259,179 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
         </div>
       </div>
 
-      {/* Description */}
-      <div className="card p-5 bg-primary/5 border-primary/20">
-        <div className="flex items-start gap-3">
-          <InformationCircleIcon width={20} height={20} className="text-primary flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Description</p>
-            <p className="text-sm text-foreground leading-relaxed">
-              {workflow.description || 'No description provided for this workflow'}
-            </p>
-          </div>
-        </div>
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b border-border">
+        <button
+          onClick={() => setActiveTab('details')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all ${
+            activeTab === 'details'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+          }`}
+        >
+          <DocumentTextIcon width={16} height={16} />
+          Details
+        </button>
+        <button
+          onClick={() => setActiveTab('builder')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all ${
+            activeTab === 'builder'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+          }`}
+        >
+          <Squares2X2Icon width={16} height={16} />
+          Visual Builder
+        </button>
       </div>
 
-      {/* All Workflow Details */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Basic Info */}
-        <div className="card p-5 space-y-3">
-          <div className="flex items-center gap-2 text-muted-foreground border-b border-border pb-2">
-            <DocumentTextIcon width={16} height={16} />
-            <span className="text-xs font-medium uppercase tracking-wider">Basic Info</span>
-          </div>
-          <div className="space-y-2.5">
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Workflow ID</p>
-              <p className="text-xs font-mono-data text-foreground truncate">{workflow.id}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Name</p>
-              <p className="text-sm font-medium text-foreground">{workflow.name}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Status</p>
-              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${statusBadge.bg} ${statusBadge.text} ${statusBadge.border}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${statusBadge.dot}`} />
-                {workflow.status}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Schedule */}
-        <div className="card p-5 space-y-3">
-          <div className="flex items-center gap-2 text-muted-foreground border-b border-border pb-2">
-            <ClockIcon width={16} height={16} />
-            <span className="text-xs font-medium uppercase tracking-wider">Schedule</span>
-          </div>
-          <div className="space-y-2.5">
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Type</p>
-              <p className="text-sm font-medium text-foreground">{getScheduleTypeLabel(workflow.scheduleType)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Expression</p>
-              <p className="text-sm font-mono-data text-foreground">{workflow.scheduleExpression}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Timezone</p>
-              <div className="flex items-center gap-1.5">
-                <GlobeAltIcon width={14} height={14} className="text-muted-foreground" />
-                <span className="text-sm text-foreground">{workflow.timezone}</span>
+      {/* Tab Content */}
+      {activeTab === 'details' ? (
+        /* === DETAILS TAB === */
+        <div className="space-y-6">
+          {/* Description */}
+          <div className="card p-5 bg-primary/5 border-primary/20">
+            <div className="flex items-start gap-3">
+              <InformationCircleIcon width={20} height={20} className="text-primary flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Description</p>
+                <p className="text-sm text-foreground leading-relaxed">
+                  {workflow.description || 'No description provided for this workflow'}
+                </p>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Timing */}
-        <div className="card p-5 space-y-3">
-          <div className="flex items-center gap-2 text-muted-foreground border-b border-border pb-2">
-            <CalendarDaysIcon width={16} height={16} />
-            <span className="text-xs font-medium uppercase tracking-wider">Timing</span>
-          </div>
-          <div className="space-y-2.5">
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Created At</p>
-              <p className="text-sm text-foreground">{formatDate(workflow.createdAt)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Last Updated</p>
-              <p className="text-sm text-foreground">{formatRelativeTime(workflow.updatedAt)}</p>
-            </div>
-            {workflow.startAt && (
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Start At</p>
-                <p className="text-sm text-foreground">{formatDate(workflow.startAt)}</p>
+          {/* All Workflow Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Basic Info */}
+            <div className="card p-5 space-y-3">
+              <div className="flex items-center gap-2 text-muted-foreground border-b border-border pb-2">
+                <DocumentTextIcon width={16} height={16} />
+                <span className="text-xs font-medium uppercase tracking-wider">Basic Info</span>
               </div>
+              <div className="space-y-2.5">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Workflow ID</p>
+                  <p className="text-xs font-mono-data text-foreground truncate">{workflow.id}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Name</p>
+                  <p className="text-sm font-medium text-foreground">{workflow.name}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Status</p>
+                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${statusBadge.bg} ${statusBadge.text} ${statusBadge.border}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusBadge.dot}`} />
+                    {workflow.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Schedule */}
+            <div className="card p-5 space-y-3">
+              <div className="flex items-center gap-2 text-muted-foreground border-b border-border pb-2">
+                <ClockIcon width={16} height={16} />
+                <span className="text-xs font-medium uppercase tracking-wider">Schedule</span>
+              </div>
+              <div className="space-y-2.5">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Type</p>
+                  <p className="text-sm font-medium text-foreground">{getScheduleTypeLabel(workflow.scheduleType)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Expression</p>
+                  <p className="text-sm font-mono-data text-foreground">{workflow.scheduleExpression}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Timezone</p>
+                  <div className="flex items-center gap-1.5">
+                    <GlobeAltIcon width={14} height={14} className="text-muted-foreground" />
+                    <span className="text-sm text-foreground">{workflow.timezone}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Timing */}
+            <div className="card p-5 space-y-3">
+              <div className="flex items-center gap-2 text-muted-foreground border-b border-border pb-2">
+                <CalendarDaysIcon width={16} height={16} />
+                <span className="text-xs font-medium uppercase tracking-wider">Timing</span>
+              </div>
+              <div className="space-y-2.5">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Created At</p>
+                  <p className="text-sm text-foreground">{formatDate(workflow.createdAt)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Last Updated</p>
+                  <p className="text-sm text-foreground">{formatRelativeTime(workflow.updatedAt)}</p>
+                </div>
+                {workflow.startAt && (
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Start At</p>
+                    <p className="text-sm text-foreground">{formatDate(workflow.startAt)}</p>
+                  </div>
+                )}
+                {workflow.endAt && (
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">End At</p>
+                    <p className="text-sm text-foreground">{formatDate(workflow.endAt)}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Metadata */}
+          <div className="card p-5 space-y-3">
+            <div className="flex items-center gap-2 text-muted-foreground border-b border-border pb-2">
+              <TagIcon width={16} height={16} />
+              <span className="text-xs font-medium uppercase tracking-wider">Metadata</span>
+            </div>
+            {workflow.metadata && Object.keys(workflow.metadata).length > 0 ? (
+              <div className="bg-muted rounded-lg p-4 overflow-x-auto">
+                <pre className="text-xs font-mono-data text-foreground whitespace-pre-wrap">
+                  {JSON.stringify(workflow.metadata, null, 2)}
+                </pre>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">No metadata available</p>
             )}
-            {workflow.endAt && (
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">End At</p>
-                <p className="text-sm text-foreground">{formatDate(workflow.endAt)}</p>
-              </div>
-            )}
           </div>
         </div>
-      </div>
-
-      {/* Metadata */}
-      <div className="card p-5 space-y-3">
-        <div className="flex items-center gap-2 text-muted-foreground border-b border-border pb-2">
-          <TagIcon width={16} height={16} />
-          <span className="text-xs font-medium uppercase tracking-wider">Metadata</span>
-        </div>
-        {workflow.metadata && Object.keys(workflow.metadata).length > 0 ? (
-          <div className="bg-muted rounded-lg p-4 overflow-x-auto">
-            <pre className="text-xs font-mono-data text-foreground whitespace-pre-wrap">
-              {JSON.stringify(workflow.metadata, null, 2)}
-            </pre>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground italic">No metadata available</p>
-        )}
-      </div>
-
-      {/* Coming Soon */}
-      <div className="card p-8 text-center border-dashed border-2 border-border">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-secondary border border-border flex items-center justify-center">
-            <Cog6ToothIcon width={24} height={24} className="text-muted-foreground opacity-50" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground">More Features Coming Soon</p>
-            <p className="text-xs text-muted-foreground max-w-md">
-              Jobs, executions, and canvas view will be added here
-            </p>
+      ) : (
+        /* === VISUAL BUILDER TAB === */
+        <div className="card p-16 text-center border-dashed border-2 border-border">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-20 h-20 rounded-full bg-secondary border border-border flex items-center justify-center">
+              <Squares2X2Icon width={40} height={40} className="text-muted-foreground opacity-30" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Visual Builder</h2>
+              <p className="text-sm text-muted-foreground max-w-md mt-1">
+                Drag and drop workflow builder is coming soon!
+              </p>
+              <p className="text-xs text-muted-foreground max-w-md mt-1">
+                You'll be able to visually design your workflow with jobs and dependencies.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <div className="w-2 h-2 rounded-full bg-primary/30 animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-primary/30 animate-pulse delay-150" />
+              <div className="w-2 h-2 rounded-full bg-primary/30 animate-pulse delay-300" />
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Features coming:</span>
+              <span className="px-2 py-0.5 rounded-full bg-secondary border border-border">Drag & Drop</span>
+              <span className="px-2 py-0.5 rounded-full bg-secondary border border-border">Connect Jobs</span>
+              <span className="px-2 py-0.5 rounded-full bg-secondary border border-border">Save Dependencies</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
