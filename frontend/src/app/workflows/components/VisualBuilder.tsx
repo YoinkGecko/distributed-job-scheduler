@@ -32,6 +32,25 @@ interface Props {
   workflowName: string;
 }
 
+interface JobDetail {
+  id: string;
+  type: string;
+  payload: Record<string, any>;
+  status: string;
+  priority: number;
+  scheduledAt: string;
+  createdAt: string;
+  updatedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  retryCount: number;
+  maxRetries: number;
+  assignedWorker: string | null;
+  heartbeatAt: string | null;
+  lockExpiresAt: string | null;
+  lastError: string | null;
+}
+
 // 1. Custom Node UI Engine
 const NodeCard = ({ data, selected }: NodeProps) => {
   const getIcon = (type: string) => {
@@ -217,7 +236,8 @@ const initialEdges: Edge[] = [
 ];
 
 export default function VisualBuilder({ workflowId, workflowName }: Props) {
-  const [workflowJobs, setWorkflowJobs] = useState([]);
+  const [workflowJobs, setWorkflowJobs] = useState<string[]>([]);
+  const [jobDetails, setJobDetails] = useState<JobDetail[]>([]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [isRunning, setIsRunning] = useState(false);
@@ -228,12 +248,24 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
 
   const nodeTypes = useMemo(() => ({ customJob: NodeCard }), []);
 
-  const fetchWorkflowJobs = async () => {
-    const response = await fetch(
-      `http://localhost:3000/workflow/${workflowId}/jobs`
-    );
+  const getJobDetails = async (jobId:string) => {
+    const response = await fetch(`http://localhost:3000/jobs/${jobId}`);
     const data = await response.json();
-    setWorkflowJobs(data);
+    return data.job;
+  };
+
+  const fetchWorkflowJobs = async () => {
+    const response = await fetch(`http://localhost:3000/workflow/${workflowId}/jobs`);
+    const jobIds = await response.json();
+    console.log("JOB IDS", jobIds);
+    setWorkflowJobs(jobIds);
+
+    // Fetch details for each job ID in parallel
+    const detailsPromises = jobIds.map((id:string) => getJobDetails(id));
+    const details = await Promise.all(detailsPromises);
+     console.log("JOB details", details);
+
+    setJobDetails(details);
   };
 
   const onConnect = useCallback(
