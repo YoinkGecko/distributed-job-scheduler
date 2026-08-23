@@ -76,9 +76,9 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
   dagreGraph.setGraph({
-    rankdir: direction, // 'LR' = Left-to-Right layout
-    nodesep: 50,        // Vertical spacing between nodes in the same column
-    ranksep: 100,       // Horizontal spacing between parent and child columns
+    rankdir: direction,
+    nodesep: 50,
+    ranksep: 100,
   });
 
   nodes.forEach((node) => {
@@ -107,7 +107,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
   return { layoutedNodes, layoutedEdges: edges };
 };
 
-// 1. Custom Node UI Component
+// Custom Node UI Component - Shows only: type, id, priority, maxRetries
 const NodeCard = ({ data, selected }: NodeProps) => {
   const nodeData = data as Record<string, any>;
 
@@ -124,34 +124,9 @@ const NodeCard = ({ data, selected }: NodeProps) => {
     return <CpuChipIcon className="w-4 h-4 text-purple-400" />;
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'completed':
-      case 'success':
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-mono-data bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-            <CheckCircleIcon className="w-3 h-3" /> Ready
-          </span>
-        );
-      case 'running':
-      case 'active':
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] text-blue-400 font-mono-data bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
-            <ArrowPathIcon className="w-3 h-3 animate-spin" /> Active
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400 font-mono-data bg-zinc-800 px-1.5 py-0.5 rounded">
-            {status || 'Idle'}
-          </span>
-        );
-    }
-  };
-
   return (
     <div
-      className={`relative min-w-[220px] rounded-xl bg-card/90 border p-3 shadow-xl backdrop-blur-md transition-all ${
+      className={`relative min-w-[200px] rounded-xl bg-card/90 border p-3 shadow-xl backdrop-blur-md transition-all ${
         selected ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-zinc-700'
       }`}
     >
@@ -161,25 +136,34 @@ const NodeCard = ({ data, selected }: NodeProps) => {
         className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-background hover:!scale-125 transition-transform"
       />
 
-      <div className="flex items-center justify-between pb-2 border-b border-border/60 mb-2">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-md bg-secondary border border-border">
-            {getIcon(nodeData.jobType)}
-          </div>
-          <span className="text-xs font-semibold text-foreground font-sans">
-            {nodeData.title || nodeData.jobType}
-          </span>
+      {/* Type */}
+      <div className="flex items-center gap-2 pb-2 border-b border-border/60 mb-2">
+        <div className="p-1.5 rounded-md bg-secondary border border-border">
+          {getIcon(nodeData.jobType)}
         </div>
+        <span className="text-xs font-semibold text-foreground font-sans truncate">
+          {nodeData.title || nodeData.jobType}
+        </span>
       </div>
 
+      {/* Only: ID, Priority, Max Retries */}
       <div className="space-y-1.5">
-        <p className="text-[11px] font-mono-data text-muted-foreground truncate">
-          ID: {nodeData.jobId?.slice(0, 8)}
-        </p>
-        <div className="flex items-center justify-between pt-1">
-          {getStatusBadge(nodeData.status)}
-          <span className="text-[10px] font-mono-data text-muted-foreground">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground">ID</span>
+          <span className="text-[10px] font-mono-data text-foreground truncate max-w-[100px]">
+            {nodeData.jobId?.slice(0, 12) || '---'}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground">Priority</span>
+          <span className="text-[10px] font-mono-data text-foreground">
             P-{nodeData.priority ?? 1}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground">Max Retries</span>
+          <span className="text-[10px] font-mono-data text-foreground">
+            {nodeData.maxRetries ?? 3}
           </span>
         </div>
       </div>
@@ -209,25 +193,23 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
     fetchDependencies(workflowId);
   }, [workflowId]);
 
-  // Combined Layout Effect: Builds both Nodes and Edges then applies Dagre Auto-Layout
+  // Combined Layout Effect
   useEffect(() => {
     if (jobDetails.length === 0) return;
 
-    // 1. Build initial raw nodes
     const rawNodes: Node[] = jobDetails.map((job) => ({
       id: job.id,
       type: 'customJob',
-      position: { x: 0, y: 0 }, // Dagre will overwrite this position
+      position: { x: 0, y: 0 },
       data: {
         jobId: job.id,
         title: job.type,
         jobType: job.type,
-        status: job.status,
         priority: job.priority,
+        maxRetries: job.maxRetries,
       },
     }));
 
-    // 2. Build initial raw edges
     const rawEdges: Edge[] = dependencies.map((dep) => ({
       id: dep.id,
       source: dep.parentJobId,
@@ -236,7 +218,6 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
       style: { stroke: '#6ee7b7', strokeWidth: 2 },
     }));
 
-    // 3. Calculate structured positions automatically using Dagre
     const { layoutedNodes, layoutedEdges } = getLayoutedElements(rawNodes, rawEdges, 'LR');
 
     setNodes(layoutedNodes);
@@ -244,20 +225,56 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
   }, [jobDetails, dependencies, setNodes, setEdges]);
 
   const getJobDetails = async (jobId: string) => {
-    const response = await fetch(`http://localhost:3000/jobs/${jobId}`);
-    const data = await response.json();
-    return data.job;
+    try {
+      const response = await fetch(`http://localhost:3000/jobs/${jobId}`);
+      if (!response.ok) return null;
+      const data = await response.json();
+      const job = data.job || data;
+      return {
+        id: job.id,
+        type: job.type || 'unknown',
+        payload: job.payload || {},
+        status: job.status || 'WAITING',
+        priority: job.priority || 0,
+        scheduledAt: job.scheduledAt || null,
+        createdAt: job.createdAt || null,
+        updatedAt: job.updatedAt || null,
+        startedAt: job.startedAt || null,
+        completedAt: job.completedAt || null,
+        retryCount: job.retryCount || 0,
+        maxRetries: job.maxRetries || 3,
+        assignedWorker: job.assignedWorker || null,
+        heartbeatAt: job.heartbeatAt || null,
+        lockExpiresAt: job.lockExpiresAt || null,
+        lastError: job.lastError || null,
+      };
+    } catch {
+      return null;
+    }
   };
 
   const fetchWorkflowJobs = async () => {
     try {
       const response = await fetch(`http://localhost:3000/workflow/${workflowId}/jobs`);
-      const jobIds = await response.json();
+      if (!response.ok) {
+        console.error(`Failed to fetch workflow jobs: ${response.status}`);
+        return;
+      }
+
+      const jobIds: string[] = await response.json();
+      console.log('Job IDs:', jobIds);
       setWorkflowJobs(jobIds);
+
+      if (jobIds.length === 0) {
+        setJobDetails([]);
+        return;
+      }
 
       const detailsPromises = jobIds.map((id: string) => getJobDetails(id));
       const details = await Promise.all(detailsPromises);
-      setJobDetails(details);
+      const validDetails = details.filter((d): d is JobDetail => d !== null);
+      console.log('Job details:', validDetails);
+      setJobDetails(validDetails);
     } catch (error) {
       console.error('Failed to fetch workflow jobs:', error);
     }
@@ -267,10 +284,13 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
     try {
       const response = await fetch(`http://localhost:3000/workflow/${id}/dependencies`);
       if (!response.ok) {
-        throw new Error(`Failed to fetch dependencies: ${response.statusText}`);
+        console.error(`Failed to fetch dependencies: ${response.status}`);
+        return;
       }
+
       const data: WorkflowDependenciesResponse = await response.json();
-      setDependencies(data.dependencies);
+      console.log('Dependencies:', data.dependencies);
+      setDependencies(data.dependencies || []);
     } catch (error) {
       console.error('Failed to fetch dependencies:', error);
     }
