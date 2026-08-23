@@ -65,23 +65,26 @@ interface WorkflowDependenciesResponse {
   dependencies: Dependency[];
 }
 
-// 1. Custom Node UI Engine
+// 1. Custom Node UI Component
 const NodeCard = ({ data, selected }: NodeProps) => {
+  const nodeData = data as Record<string, any>;
+
   const getIcon = (type: string) => {
-    switch (type) {
-      case 'trigger':
-        return <ClockIcon className="w-4 h-4 text-emerald-400" />;
-      case 'database':
-        return <CircleStackIcon className="w-4 h-4 text-blue-400" />;
-      case 'alert':
-        return <ExclamationTriangleIcon className="w-4 h-4 text-amber-400" />;
-      default:
-        return <CpuChipIcon className="w-4 h-4 text-purple-400" />;
+    if (type?.includes('trigger') || type?.includes('cron')) {
+      return <ClockIcon className="w-4 h-4 text-emerald-400" />;
     }
+    if (type?.includes('db') || type?.includes('query')) {
+      return <CircleStackIcon className="w-4 h-4 text-blue-400" />;
+    }
+    if (type?.includes('alert') || type?.includes('error')) {
+      return <ExclamationTriangleIcon className="w-4 h-4 text-amber-400" />;
+    }
+    return <CpuChipIcon className="w-4 h-4 text-purple-400" />;
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
+      case 'completed':
       case 'success':
         return (
           <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-mono-data bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
@@ -89,6 +92,7 @@ const NodeCard = ({ data, selected }: NodeProps) => {
           </span>
         );
       case 'running':
+      case 'active':
         return (
           <span className="inline-flex items-center gap-1 text-[10px] text-blue-400 font-mono-data bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
             <ArrowPathIcon className="w-3 h-3 animate-spin" /> Active
@@ -97,7 +101,7 @@ const NodeCard = ({ data, selected }: NodeProps) => {
       default:
         return (
           <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400 font-mono-data bg-zinc-800 px-1.5 py-0.5 rounded">
-            Idle
+            {status || 'Idle'}
           </span>
         );
     }
@@ -118,22 +122,22 @@ const NodeCard = ({ data, selected }: NodeProps) => {
       <div className="flex items-center justify-between pb-2 border-b border-border/60 mb-2">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-md bg-secondary border border-border">
-            {getIcon((data as Record<string, string>).nodeType)}
+            {getIcon(nodeData.jobType)}
           </div>
           <span className="text-xs font-semibold text-foreground font-sans">
-            {(data as Record<string, string>).title}
+            {nodeData.title || nodeData.jobType}
           </span>
         </div>
       </div>
 
       <div className="space-y-1.5">
         <p className="text-[11px] font-mono-data text-muted-foreground truncate">
-          {(data as Record<string, string>).jobType}
+          ID: {nodeData.jobId?.slice(0, 8)}
         </p>
         <div className="flex items-center justify-between pt-1">
-          {getStatusBadge((data as Record<string, string>).status)}
+          {getStatusBadge(nodeData.status)}
           <span className="text-[10px] font-mono-data text-muted-foreground">
-            P-{(data as Record<string, number>).priority ?? 1}
+            P-{nodeData.priority ?? 1}
           </span>
         </div>
       </div>
@@ -147,150 +151,88 @@ const NodeCard = ({ data, selected }: NodeProps) => {
   );
 };
 
-// 2. Multi-branch Pipeline Topology
-const initialNodes: Node[] = [
-  {
-    id: 'n1',
-    type: 'customJob',
-    position: { x: 50, y: 150 },
-    data: {
-      title: 'Cron Scheduler',
-      jobType: 'trigger.cron_schedule',
-      nodeType: 'trigger',
-      status: 'success',
-      priority: 1,
-    },
-  },
-  {
-    id: 'n2',
-    type: 'customJob',
-    position: { x: 340, y: 150 },
-    data: {
-      title: 'Fetch Records',
-      jobType: 'db.query_pending_jobs',
-      nodeType: 'database',
-      status: 'success',
-      priority: 5,
-    },
-  },
-  {
-    id: 'n3',
-    type: 'customJob',
-    position: { x: 630, y: 60 },
-    data: {
-      title: 'Send Invoice Email',
-      jobType: 'email.deliver_invoice',
-      nodeType: 'action',
-      status: 'idle',
-      priority: 10,
-    },
-  },
-  {
-    id: 'n4',
-    type: 'customJob',
-    position: { x: 630, y: 240 },
-    data: {
-      title: 'Vacuum Deadlock Log',
-      jobType: 'db.vacuum_stale_sessions',
-      nodeType: 'database',
-      status: 'idle',
-      priority: 2,
-    },
-  },
-  {
-    id: 'n5',
-    type: 'customJob',
-    position: { x: 920, y: 150 },
-    data: {
-      title: 'Slack Fallback Alert',
-      jobType: 'alert.notify_failure',
-      nodeType: 'alert',
-      status: 'idle',
-      priority: 99,
-    },
-  },
-];
-
-const initialEdges: Edge[] = [
-  {
-    id: 'e1-2',
-    source: 'n1',
-    target: 'n2',
-    animated: true,
-    style: { stroke: '#6ee7b7', strokeWidth: 2 },
-  },
-  {
-    id: 'e2-3',
-    source: 'n2',
-    target: 'n3',
-    animated: true,
-    style: { stroke: '#6ee7b7', strokeWidth: 2 },
-  },
-  {
-    id: 'e2-4',
-    source: 'n2',
-    target: 'n4',
-    animated: true,
-    style: { stroke: '#6ee7b7', strokeWidth: 2 },
-  },
-  {
-    id: 'e3-5',
-    source: 'n3',
-    target: 'n5',
-    animated: true,
-    style: { stroke: '#71717a', strokeWidth: 1.5 },
-  },
-  {
-    id: 'e4-5',
-    source: 'n4',
-    target: 'n5',
-    animated: true,
-    style: { stroke: '#71717a', strokeWidth: 1.5 },
-  },
-];
-
 export default function VisualBuilder({ workflowId, workflowName }: Props) {
   const [workflowJobs, setWorkflowJobs] = useState<string[]>([]);
   const [jobDetails, setJobDetails] = useState<JobDetail[]>([]);
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [isRunning, setIsRunning] = useState(false);
+
+  const nodeTypes = useMemo(() => ({ customJob: NodeCard }), []);
 
   useEffect(() => {
     fetchWorkflowJobs();
     fetchDependencies(workflowId);
-  }, []);
+  }, [workflowId]);
 
-  const nodeTypes = useMemo(() => ({ customJob: NodeCard }), []);
+  // 1. Dynamic Nodes Generation from jobDetails
+  useEffect(() => {
+    if (jobDetails.length === 0) return;
 
-  const getJobDetails = async (jobId:string) => {
+    const generatedNodes: Node[] = jobDetails.map((job, index) => ({
+      id: job.id,
+      type: 'customJob',
+      position: { x: (index % 3) * 300 + 50, y: Math.floor(index / 3) * 150 + 100 },
+      data: {
+        jobId: job.id,
+        title: job.type,
+        jobType: job.type,
+        status: job.status,
+        priority: job.priority,
+      },
+    }));
+
+    setNodes(generatedNodes);
+  }, [jobDetails, setNodes]);
+
+  // 2. Dynamic Edges Generation from dependencies
+  useEffect(() => {
+    if (dependencies.length === 0) return;
+
+    const generatedEdges: Edge[] = dependencies.map((dep) => ({
+      id: dep.id,
+      source: dep.parentJobId,
+      target: dep.childJobId,
+      animated: true,
+      style: { stroke: '#6ee7b7', strokeWidth: 2 },
+    }));
+
+    setEdges(generatedEdges);
+  }, [dependencies, setEdges]);
+
+  const getJobDetails = async (jobId: string) => {
     const response = await fetch(`http://localhost:3000/jobs/${jobId}`);
     const data = await response.json();
     return data.job;
   };
 
   const fetchWorkflowJobs = async () => {
-    const response = await fetch(`http://localhost:3000/workflow/${workflowId}/jobs`);
-    const jobIds = await response.json();
-    console.log("JOB IDS", jobIds);
-    setWorkflowJobs(jobIds);
+    try {
+      const response = await fetch(`http://localhost:3000/workflow/${workflowId}/jobs`);
+      const jobIds = await response.json();
+      setWorkflowJobs(jobIds);
 
-    // Fetch details for each job ID in parallel
-    const detailsPromises = jobIds.map((id:string) => getJobDetails(id));
-    const details = await Promise.all(detailsPromises);
-     console.log("JOB details", details);
-
-    setJobDetails(details);
+      const detailsPromises = jobIds.map((id: string) => getJobDetails(id));
+      const details = await Promise.all(detailsPromises);
+      setJobDetails(details);
+    } catch (error) {
+      console.error('Failed to fetch workflow jobs:', error);
+    }
   };
 
   const fetchDependencies = async (id: string) => {
+    try {
       const response = await fetch(`http://localhost:3000/workflow/${id}/dependencies`);
       if (!response.ok) {
-        throw new Error(`Failed to fetch: ${response.statusText}`);
+        throw new Error(`Failed to fetch dependencies: ${response.statusText}`);
       }
       const data: WorkflowDependenciesResponse = await response.json();
       setDependencies(data.dependencies);
+    } catch (error) {
+      console.error('Failed to fetch dependencies:', error);
+    }
   };
 
   const onConnect = useCallback(
@@ -301,43 +243,23 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
     [setEdges]
   );
 
-  // Simulation: Runs execution across connected pipeline step by step
   const handleSimulateRun = () => {
+    if (nodes.length === 0) return;
     setIsRunning(true);
 
-    const steps = ['n1', 'n2', 'n3', 'n4', 'n5'];
-    steps.forEach((stepId, index) => {
+    nodes.forEach((node, index) => {
       setTimeout(() => {
         setNodes((nds) =>
-          nds.map((node) => {
-            if (node.id === stepId) {
-              return {
-                ...node,
-                data: { ...node.data, status: 'running' },
-              };
-            }
-            return node;
-          })
+          nds.map((n) => (n.id === node.id ? { ...n, data: { ...n.data, status: 'running' } } : n))
         );
       }, index * 800);
 
-      setTimeout(
-        () => {
-          setNodes((nds) =>
-            nds.map((node) => {
-              if (node.id === stepId) {
-                return {
-                  ...node,
-                  data: { ...node.data, status: 'success' },
-                };
-              }
-              return node;
-            })
-          );
-          if (index === steps.length - 1) setIsRunning(false);
-        },
-        (index + 1) * 800
-      );
+      setTimeout(() => {
+        setNodes((nds) =>
+          nds.map((n) => (n.id === node.id ? { ...n, data: { ...n.data, status: 'success' } } : n))
+        );
+        if (index === nodes.length - 1) setIsRunning(false);
+      }, (index + 1) * 800);
     });
   };
 
@@ -353,14 +275,14 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
           <div>
             <h3 className="text-xs font-semibold text-foreground">{workflowName}</h3>
             <p className="text-[10px] font-mono-data text-muted-foreground">
-              ID: {workflowId.slice(0, 8)}
+              ID: {workflowId.slice(0, 8)} • Jobs: {jobDetails.length} • Edges: {edges.length}
             </p>
           </div>
         </div>
 
         <button
           onClick={handleSimulateRun}
-          disabled={isRunning}
+          disabled={isRunning || nodes.length === 0}
           className="btn-primary text-xs py-2 px-3 shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5"
         >
           {isRunning ? (
@@ -372,7 +294,7 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
         </button>
       </div>
 
-      {/* xyflow Workspace Surface */}
+      {/* xyflow Canvas */}
       <ReactFlow
         nodes={nodes}
         edges={edges}
