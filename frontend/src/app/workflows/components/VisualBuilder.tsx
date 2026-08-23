@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -179,19 +179,62 @@ const initialNodes: Node[] = [
 ];
 
 const initialEdges: Edge[] = [
-  { id: 'e1-2', source: 'n1', target: 'n2', animated: true, style: { stroke: '#6ee7b7', strokeWidth: 2 } },
-  { id: 'e2-3', source: 'n2', target: 'n3', animated: true, style: { stroke: '#6ee7b7', strokeWidth: 2 } },
-  { id: 'e2-4', source: 'n2', target: 'n4', animated: true, style: { stroke: '#6ee7b7', strokeWidth: 2 } },
-  { id: 'e3-5', source: 'n3', target: 'n5', animated: true, style: { stroke: '#71717a', strokeWidth: 1.5 } },
-  { id: 'e4-5', source: 'n4', target: 'n5', animated: true, style: { stroke: '#71717a', strokeWidth: 1.5 } },
+  {
+    id: 'e1-2',
+    source: 'n1',
+    target: 'n2',
+    animated: true,
+    style: { stroke: '#6ee7b7', strokeWidth: 2 },
+  },
+  {
+    id: 'e2-3',
+    source: 'n2',
+    target: 'n3',
+    animated: true,
+    style: { stroke: '#6ee7b7', strokeWidth: 2 },
+  },
+  {
+    id: 'e2-4',
+    source: 'n2',
+    target: 'n4',
+    animated: true,
+    style: { stroke: '#6ee7b7', strokeWidth: 2 },
+  },
+  {
+    id: 'e3-5',
+    source: 'n3',
+    target: 'n5',
+    animated: true,
+    style: { stroke: '#71717a', strokeWidth: 1.5 },
+  },
+  {
+    id: 'e4-5',
+    source: 'n4',
+    target: 'n5',
+    animated: true,
+    style: { stroke: '#71717a', strokeWidth: 1.5 },
+  },
 ];
 
 export default function VisualBuilder({ workflowId, workflowName }: Props) {
+  const [workflowJobs, setWorkflowJobs] = useState([]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [isRunning, setIsRunning] = useState(false);
 
+  useEffect(() => {
+    fetchWorkflowJobs();
+  }, []);
+
   const nodeTypes = useMemo(() => ({ customJob: NodeCard }), []);
+
+  const fetchWorkflowJobs = async () => {
+    const response = await fetch(
+      `http://localhost:3000/workflow/${workflowId}/jobs`
+    );
+    const data = await response.json();
+    setWorkflowJobs(data);
+  };
 
   const onConnect = useCallback(
     (params: Connection) =>
@@ -221,20 +264,23 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
         );
       }, index * 800);
 
-      setTimeout(() => {
-        setNodes((nds) =>
-          nds.map((node) => {
-            if (node.id === stepId) {
-              return {
-                ...node,
-                data: { ...node.data, status: 'success' },
-              };
-            }
-            return node;
-          })
-        );
-        if (index === steps.length - 1) setIsRunning(false);
-      }, (index + 1) * 800);
+      setTimeout(
+        () => {
+          setNodes((nds) =>
+            nds.map((node) => {
+              if (node.id === stepId) {
+                return {
+                  ...node,
+                  data: { ...node.data, status: 'success' },
+                };
+              }
+              return node;
+            })
+          );
+          if (index === steps.length - 1) setIsRunning(false);
+        },
+        (index + 1) * 800
+      );
     });
   };
 
@@ -249,7 +295,9 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
           </span>
           <div>
             <h3 className="text-xs font-semibold text-foreground">{workflowName}</h3>
-            <p className="text-[10px] font-mono-data text-muted-foreground">ID: {workflowId.slice(0, 8)}</p>
+            <p className="text-[10px] font-mono-data text-muted-foreground">
+              ID: {workflowId.slice(0, 8)}
+            </p>
           </div>
         </div>
 
