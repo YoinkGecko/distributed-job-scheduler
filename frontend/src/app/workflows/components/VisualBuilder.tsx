@@ -16,6 +16,7 @@ import {
   Position,
   NodeProps,
 } from '@xyflow/react';
+import dagre from 'dagre';
 
 import {
   ClockIcon,
@@ -64,6 +65,47 @@ interface WorkflowDependenciesResponse {
   workflowId: string;
   dependencies: Dependency[];
 }
+
+// Node dimensions for Dagre layout calculations
+const NODE_WIDTH = 240;
+const NODE_HEIGHT = 100;
+
+// Dagre Automatic Layout Engine
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+  dagreGraph.setGraph({
+    rankdir: direction, // 'LR' = Left-to-Right layout
+    nodesep: 50,        // Vertical spacing between nodes in the same column
+    ranksep: 100,       // Horizontal spacing between parent and child columns
+  });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const layoutedNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      targetPosition: Position.Left,
+      sourcePosition: Position.Right,
+      position: {
+        x: nodeWithPosition.x - NODE_WIDTH / 2,
+        y: nodeWithPosition.y - NODE_HEIGHT / 2,
+      },
+    };
+  });
+
+  return { layoutedNodes, layoutedEdges: edges };
+};
 
 // 1. Custom Node UI Component
 const NodeCard = ({ data, selected }: NodeProps) => {
@@ -155,7 +197,7 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
   const [workflowJobs, setWorkflowJobs] = useState<string[]>([]);
   const [jobDetails, setJobDetails] = useState<JobDetail[]>([]);
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
-  
+
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -167,14 +209,15 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
     fetchDependencies(workflowId);
   }, [workflowId]);
 
-  // 1. Dynamic Nodes Generation from jobDetails
+  // Combined Layout Effect: Builds both Nodes and Edges then applies Dagre Auto-Layout
   useEffect(() => {
     if (jobDetails.length === 0) return;
 
-    const generatedNodes: Node[] = jobDetails.map((job, index) => ({
+    // 1. Build initial raw nodes
+    const rawNodes: Node[] = jobDetails.map((job) => ({
       id: job.id,
       type: 'customJob',
-      position: { x: (index % 3) * 300 + 50, y: Math.floor(index / 3) * 150 + 100 },
+      position: { x: 0, y: 0 }, // Dagre will overwrite this position
       data: {
         jobId: job.id,
         title: job.type,
@@ -184,14 +227,8 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
       },
     }));
 
-    setNodes(generatedNodes);
-  }, [jobDetails, setNodes]);
-
-  // 2. Dynamic Edges Generation from dependencies
-  useEffect(() => {
-    if (dependencies.length === 0) return;
-
-    const generatedEdges: Edge[] = dependencies.map((dep) => ({
+    // 2. Build initial raw edges
+    const rawEdges: Edge[] = dependencies.map((dep) => ({
       id: dep.id,
       source: dep.parentJobId,
       target: dep.childJobId,
@@ -199,8 +236,12 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
       style: { stroke: '#6ee7b7', strokeWidth: 2 },
     }));
 
-    setEdges(generatedEdges);
-  }, [dependencies, setEdges]);
+    // 3. Calculate structured positions automatically using Dagre
+    const { layoutedNodes, layoutedEdges } = getLayoutedElements(rawNodes, rawEdges, 'LR');
+
+    setNodes(layoutedNodes);
+    setEdges(layoutedEdges);
+  }, [jobDetails, dependencies, setNodes, setEdges]);
 
   const getJobDetails = async (jobId: string) => {
     const response = await fetch(`http://localhost:3000/jobs/${jobId}`);
