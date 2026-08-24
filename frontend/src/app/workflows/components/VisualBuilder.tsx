@@ -23,9 +23,6 @@ import {
   CpuChipIcon,
   CircleStackIcon,
   ExclamationTriangleIcon,
-  PlayIcon,
-  CheckCircleIcon,
-  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 
 interface Props {
@@ -184,7 +181,6 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const [isRunning, setIsRunning] = useState(false);
 
   const nodeTypes = useMemo(() => ({ customJob: NodeCard }), []);
 
@@ -304,35 +300,11 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
     [setEdges]
   );
 
-  const handleSimulateRun = () => {
-    if (nodes.length === 0) return;
-    setIsRunning(true);
-
-    nodes.forEach((node, index) => {
-      setTimeout(() => {
-        setNodes((nds) =>
-          nds.map((n) => (n.id === node.id ? { ...n, data: { ...n.data, status: 'running' } } : n))
-        );
-      }, index * 800);
-
-      setTimeout(() => {
-        setNodes((nds) =>
-          nds.map((n) => (n.id === node.id ? { ...n, data: { ...n.data, status: 'success' } } : n))
-        );
-        if (index === nodes.length - 1) setIsRunning(false);
-      }, (index + 1) * 800);
-    });
-  };
-
   return (
     <div className="card h-[580px] w-full border border-border overflow-hidden relative rounded-xl bg-background">
       {/* Overlay Toolbar Header */}
       <div className="absolute top-4 left-4 z-10 flex items-center gap-3">
         <div className="bg-card/90 backdrop-blur px-3.5 py-2 rounded-lg border border-border flex items-center gap-3 shadow-lg">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
-          </span>
           <div>
             <h3 className="text-xs font-semibold text-foreground">{workflowName}</h3>
             <p className="text-[10px] font-mono-data text-muted-foreground">
@@ -340,19 +312,6 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
             </p>
           </div>
         </div>
-
-        <button
-          onClick={handleSimulateRun}
-          disabled={isRunning || nodes.length === 0}
-          className="btn-primary text-xs py-2 px-3 shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5"
-        >
-          {isRunning ? (
-            <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <PlayIcon className="w-3.5 h-3.5 fill-current" />
-          )}
-          {isRunning ? 'Running Pipeline…' : 'Test Run Workflow'}
-        </button>
       </div>
 
       {/* xyflow Canvas */}
