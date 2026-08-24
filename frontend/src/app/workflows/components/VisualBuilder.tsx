@@ -127,10 +127,11 @@ const NodeCard = ({ data, selected }: NodeProps) => {
         selected ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-zinc-700'
       }`}
     >
+      {/* Target Handle (Input) */}
       <Handle
         type="target"
         position={Position.Left}
-        className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-background hover:!scale-125 transition-transform"
+        className="!w-3.5 !h-3.5 !bg-primary !border-2 !border-background shadow-md hover:!scale-130 transition-transform duration-150 ease-in-out cursor-crosshair"
       />
 
       {/* Type */}
@@ -165,10 +166,11 @@ const NodeCard = ({ data, selected }: NodeProps) => {
         </div>
       </div>
 
+      {/* Source Handle (Output) */}
       <Handle
         type="source"
         position={Position.Right}
-        className="!w-2.5 !h-2.5 !bg-primary !border-2 !border-background hover:!scale-125 transition-transform"
+        className="!w-3.5 !h-3.5 !bg-primary !border-2 !border-background shadow-md hover:!scale-130 transition-transform duration-150 ease-in-out cursor-crosshair"
       />
     </div>
   );
