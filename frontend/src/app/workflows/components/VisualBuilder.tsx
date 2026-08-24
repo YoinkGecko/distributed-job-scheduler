@@ -78,6 +78,8 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
     ranksep: 100,
   });
 
+  const isHorizontal = direction === 'LR' || direction === 'RL';
+
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
   });
@@ -92,8 +94,20 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
     const nodeWithPosition = dagreGraph.node(node.id);
     return {
       ...node,
-      targetPosition: Position.Left,
-      sourcePosition: Position.Right,
+      targetPosition: isHorizontal
+        ? direction === 'LR'
+          ? Position.Left
+          : Position.Right
+        : direction === 'TB'
+        ? Position.Top
+        : Position.Bottom,
+      sourcePosition: isHorizontal
+        ? direction === 'LR'
+          ? Position.Right
+          : Position.Left
+        : direction === 'TB'
+        ? Position.Bottom
+        : Position.Top,
       position: {
         x: nodeWithPosition.x - NODE_WIDTH / 2,
         y: nodeWithPosition.y - NODE_HEIGHT / 2,
@@ -105,7 +119,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
 };
 
 // Custom Node UI Component - Shows only: type, id, priority, maxRetries
-const NodeCard = ({ data, selected }: NodeProps) => {
+const NodeCard = ({ data, selected, targetPosition, sourcePosition }: NodeProps) => {
   const nodeData = data as Record<string, any>;
 
   const getIcon = (type: string) => {
@@ -130,7 +144,7 @@ const NodeCard = ({ data, selected }: NodeProps) => {
       {/* Target Handle (Input) */}
       <Handle
         type="target"
-        position={Position.Left}
+        position={targetPosition || Position.Left}
         className="!w-3.5 !h-3.5 !bg-primary !border-2 !border-background shadow-md hover:!scale-130 transition-transform duration-150 ease-in-out cursor-crosshair"
       />
 
@@ -169,7 +183,7 @@ const NodeCard = ({ data, selected }: NodeProps) => {
       {/* Source Handle (Output) */}
       <Handle
         type="source"
-        position={Position.Right}
+        position={sourcePosition || Position.Right}
         className="!w-3.5 !h-3.5 !bg-primary !border-2 !border-background shadow-md hover:!scale-130 transition-transform duration-150 ease-in-out cursor-crosshair"
       />
     </div>
@@ -180,6 +194,7 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
   const [workflowJobs, setWorkflowJobs] = useState<string[]>([]);
   const [jobDetails, setJobDetails] = useState<JobDetail[]>([]);
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
+  const [layoutDirection, setLayoutDirection] = useState<'LR' | 'RL' | 'TB' | 'BT'>('LR');
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -216,11 +231,15 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
       style: { stroke: '#6ee7b7', strokeWidth: 2 },
     }));
 
-    const { layoutedNodes, layoutedEdges } = getLayoutedElements(rawNodes, rawEdges, 'LR');
+    const { layoutedNodes, layoutedEdges } = getLayoutedElements(
+      rawNodes,
+      rawEdges,
+      layoutDirection
+    );
 
     setNodes(layoutedNodes);
     setEdges(layoutedEdges);
-  }, [jobDetails, dependencies, setNodes, setEdges]);
+  }, [jobDetails, dependencies, layoutDirection, setNodes, setEdges]);
 
   const getJobDetails = async (jobId: string) => {
     try {
@@ -302,9 +321,16 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
     [setEdges]
   );
 
+  const directions: Array<{ id: 'LR' | 'RL' | 'TB' | 'BT'; label: string; tooltip: string }> = [
+    { id: 'LR', label: 'LR', tooltip: 'Left to Right' },
+    { id: 'RL', label: 'RL', tooltip: 'Right to Left' },
+    { id: 'TB', label: 'TB', tooltip: 'Top to Bottom' },
+    { id: 'BT', label: 'BT', tooltip: 'Bottom to Top' },
+  ];
+
   return (
     <div className="card h-[580px] w-full border border-border overflow-hidden relative rounded-xl bg-background">
-      {/* Overlay Toolbar Header */}
+      {/* Overlay Toolbar Header Left */}
       <div className="absolute top-4 left-4 z-10 flex items-center gap-3">
         <div className="bg-card/90 backdrop-blur px-3.5 py-2 rounded-lg border border-border flex items-center gap-3 shadow-lg">
           <div>
@@ -312,6 +338,29 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
             <p className="text-[10px] font-mono-data text-muted-foreground">
               ID: {workflowId.slice(0, 8)} • Jobs: {jobDetails.length} • Edges: {edges.length}
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Overlay Toolbar Header Right - Compact Layout Segmented Control with Hover Tooltips */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
+        <div className="bg-card/90 backdrop-blur p-1 rounded-lg border border-border flex items-center gap-1 shadow-lg">
+          <span className="text-[11px] font-medium text-muted-foreground px-2">Layout</span>
+          <div className="flex items-center gap-0.5 bg-secondary/60 p-0.5 rounded-md border border-border/40">
+            {directions.map((dir) => (
+              <button
+                key={dir.id}
+                title={dir.tooltip}
+                onClick={() => setLayoutDirection(dir.id)}
+                className={`px-2 py-0.5 text-[11px] font-semibold rounded transition-all duration-150 ${
+                  layoutDirection === dir.id
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
+                }`}
+              >
+                {dir.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
