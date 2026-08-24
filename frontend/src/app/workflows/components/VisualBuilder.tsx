@@ -196,6 +196,7 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
   const [jobDetails, setJobDetails] = useState<JobDetail[]>([]);
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
   const [layoutDirection, setLayoutDirection] = useState<'LR' | 'RL' | 'TB' | 'BT'>('LR');
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -242,6 +243,49 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
     setEdges(layoutedEdges);
   }, [jobDetails, dependencies, layoutDirection, setNodes, setEdges]);
 
+  // Handle node click
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    setSelectedNode(node.id);
+  }, []);
+
+  // Handle pane click
+  const onPaneClick = useCallback(() => {
+    setSelectedNode(null);
+  }, []);
+
+  // Update edge styles when selected node changes
+  useEffect(() => {
+    setEdges((currentEdges) => {
+      return currentEdges.map((edge) => {
+        // If a node is selected
+        if (selectedNode) {
+          const isConnected = edge.source === selectedNode || edge.target === selectedNode;
+          
+          if (isConnected) {
+            return {
+              ...edge,
+              animated: true,
+              style: { stroke: '#fbbf24', strokeWidth: 4, opacity: 1 },
+            };
+          } else {
+            return {
+              ...edge,
+              animated: false,
+              style: { stroke: '#6ee7b7', strokeWidth: 1, opacity: 0.15 },
+            };
+          }
+        }
+        
+        // Default style when no node selected
+        return {
+          ...edge,
+          animated: true,
+          style: { stroke: '#6ee7b7', strokeWidth: 2, opacity: 1 },
+        };
+      });
+    });
+  }, [selectedNode, setEdges]);
+
   const getJobDetails = async (jobId: string) => {
     try {
       const response = await fetch(`http://localhost:3000/jobs/${jobId}`);
@@ -280,7 +324,6 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
       }
 
       const jobIds: string[] = await response.json();
-      // console.log('Job IDs:', jobIds);
       setWorkflowJobs(jobIds);
 
       if (jobIds.length === 0) {
@@ -291,7 +334,6 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
       const detailsPromises = jobIds.map((id: string) => getJobDetails(id));
       const details = await Promise.all(detailsPromises);
       const validDetails = details.filter((d): d is JobDetail => d !== null);
-      // console.log('Job details:', validDetails);
       setJobDetails(validDetails);
     } catch (error) {
       console.error('Failed to fetch workflow jobs:', error);
@@ -307,7 +349,6 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
       }
 
       const data: WorkflowDependenciesResponse = await response.json();
-      //console.log('Dependencies:', data.dependencies);
       setDependencies(data.dependencies || []);
     } catch (error) {
       console.error('Failed to fetch dependencies:', error);
@@ -337,7 +378,6 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
       const data = await response.json();
       console.log('Dependency created:', data);
 
-      // Toast notification
       toast.success('Dependency created successfully!', {
         description: `${newDependency.dependencies.length} dependency added to workflow`,
       });
@@ -353,12 +393,10 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
 
   const onConnect = useCallback(
     (params: Connection) => {
-      // Add the edge to React Flow canvas state
       setEdges((eds) =>
         addEdge({ ...params, animated: true, style: { stroke: '#6ee7b7', strokeWidth: 2 } }, eds)
       );
 
-      // Format and log ONLY the newly created dependency
       const newDependency = {
         dependencies: [
           {
@@ -426,6 +464,8 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeClick={onNodeClick}
+        onPaneClick={onPaneClick}
         fitView
         colorMode="dark"
       >
