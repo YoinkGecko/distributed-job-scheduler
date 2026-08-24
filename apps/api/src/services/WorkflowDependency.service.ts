@@ -3,6 +3,7 @@ import {
   CreateWorkflowDependencyInput,
   WorkflowJobDependency,
   JobStatus,
+  ResolvedWorkflowJobDependency,
 } from "@scheduler/types";
 import {
   WorkflowRepository,
@@ -229,5 +230,18 @@ export class WorkflowDependencyService {
     return await this.workflowDependencyRepository.findDependenciesByWorkflowId(
       workflowId,
     );
+  }
+
+  async createDependenciesFromJobId(
+    dependencies: WorkflowJobDependency[],
+    workflowId: string,
+  ) {
+    const resolvedDependencies =
+      await this.workflowDependencyRepository.getWorkflowJobIdfromJobId(
+        dependencies,
+        workflowId,
+      );
+
+    return await this.createDependencies(workflowId,resolvedDependencies);
   }
 }

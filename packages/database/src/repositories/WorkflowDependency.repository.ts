@@ -1,6 +1,6 @@
 import { pool } from "../../pool.js";
 import { snakeToCamel, PoolClient } from "@scheduler/database";
-import { WorkflowJobDependency } from "@scheduler/types";
+import { WorkflowJobDependency,ResolvedWorkflowJobDependency } from "@scheduler/types";
 
 export class WorkflowDependencyRepository {
   async createDependencies(
@@ -113,5 +113,61 @@ export class WorkflowDependencyRepository {
 
     const result = await pool.query(query, [workflowId]);
     return result.rows.map((row) => snakeToCamel(row));
+  }
+
+  async getWorkflowJobIdfromJobId(
+    dependencies: WorkflowJobDependency[],
+    workflowId: string,
+  ): Promise<ResolvedWorkflowJobDependency[]> {
+    const jobIds = dependencies.flatMap((dependency) => [
+      dependency.parentWorkflowJobId,
+      dependency.childWorkflowJobId,
+    ]);
+
+    const uniqueJobIds = [...new Set(jobIds)];
+
+    const query = `
+    SELECT
+      id,
+      job_id
+    FROM workflow_jobs
+    WHERE workflow_id = $1
+      AND job_id = ANY($2::uuid[]);
+  `;
+
+    const result = await pool.query(query, [workflowId, uniqueJobIds]);
+
+    const jobToWorkflowJob = new Map<string, string>();
+
+    for (const row of result.rows) {
+      jobToWorkflowJob.set(row.job_id, row.id);
+    }
+
+    return dependencies.map((dependency) => {
+      const parentWorkflowJobId = jobToWorkflowJob.get(
+        dependency.parentWorkflowJobId,
+      );
+
+      const childWorkflowJobId = jobToWorkflowJob.get(
+        dependency.childWorkflowJobId,
+      );
+
+      if (!parentWorkflowJobId) {
+        throw new Error(
+          `Parent job ${dependency.parentWorkflowJobId} does not belong to workflow ${workflowId}`,
+        );
+      }
+
+      if (!childWorkflowJobId) {
+        throw new Error(
+          `Child job ${dependency.childWorkflowJobId} does not belong to workflow ${workflowId}`,
+        );
+      }
+
+      return {
+        parentWorkflowJobId,
+        childWorkflowJobId,
+      };
+    });
   }
 }

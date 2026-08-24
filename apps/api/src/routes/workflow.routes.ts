@@ -4,7 +4,7 @@ import {
   addJobToWorkflow,
   getWorkflowJobs,
 } from "../controllers/workflowJob.controller.js";
-import { createDependencies } from "../controllers/workflowDependency.controller.js";
+import { createDependencies,createDependenciesFromJobs } from "../controllers/workflowDependency.controller.js";
 import { runWorkflow } from "../controllers/runWorkflow.controller.js";
 import {
   getWorkflows,
@@ -26,7 +26,8 @@ router.get("/:workflowId/dependencies", getWorkflowDependencies);
 
 router.post("/createWorkflow", createWorkflow);
 router.post("/:workflowId/jobs", addJobToWorkflow);
-router.post("/:workflowId/dependencies", createDependencies);
+//router.post("/:workflowId/dependencies", createDependencies);
+router.post("/:workflowId/dependencies", createDependenciesFromJobs);
 router.post("/:workflowId/run", runWorkflow);
 
 export default router;
