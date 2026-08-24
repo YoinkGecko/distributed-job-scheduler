@@ -99,15 +99,15 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'LR') => 
           ? Position.Left
           : Position.Right
         : direction === 'TB'
-        ? Position.Top
-        : Position.Bottom,
+          ? Position.Top
+          : Position.Bottom,
       sourcePosition: isHorizontal
         ? direction === 'LR'
           ? Position.Right
           : Position.Left
         : direction === 'TB'
-        ? Position.Bottom
-        : Position.Top,
+          ? Position.Bottom
+          : Position.Top,
       position: {
         x: nodeWithPosition.x - NODE_WIDTH / 2,
         y: nodeWithPosition.y - NODE_HEIGHT / 2,
@@ -279,7 +279,7 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
       }
 
       const jobIds: string[] = await response.json();
-      console.log('Job IDs:', jobIds);
+      // console.log('Job IDs:', jobIds);
       setWorkflowJobs(jobIds);
 
       if (jobIds.length === 0) {
@@ -290,7 +290,7 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
       const detailsPromises = jobIds.map((id: string) => getJobDetails(id));
       const details = await Promise.all(detailsPromises);
       const validDetails = details.filter((d): d is JobDetail => d !== null);
-      console.log('Job details:', validDetails);
+      // console.log('Job details:', validDetails);
       setJobDetails(validDetails);
     } catch (error) {
       console.error('Failed to fetch workflow jobs:', error);
@@ -306,20 +306,37 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
       }
 
       const data: WorkflowDependenciesResponse = await response.json();
-      console.log('Dependencies:', data.dependencies);
+      //console.log('Dependencies:', data.dependencies);
       setDependencies(data.dependencies || []);
     } catch (error) {
       console.error('Failed to fetch dependencies:', error);
     }
   };
 
-  const onConnect = useCallback(
-    (params: Connection) =>
-      setEdges((eds) =>
-        addEdge({ ...params, animated: true, style: { stroke: '#6ee7b7', strokeWidth: 2 } }, eds)
-      ),
-    [setEdges]
-  );
+const onConnect = useCallback(
+  (params: Connection) => {
+    // Add the edge to React Flow canvas state
+    setEdges((eds) =>
+      addEdge(
+        { ...params, animated: true, style: { stroke: '#6ee7b7', strokeWidth: 2 } },
+        eds
+      )
+    );
+
+    // Format and log ONLY the newly created dependency
+    const newDependency = {
+      dependencies: [
+        {
+          parentWorkflowJobId: params.source,
+          childWorkflowJobId: params.target,
+        },
+      ],
+    };
+
+    // console.log('New Dependency Added:', JSON.stringify(newDependency, null, 2));
+  },
+  [setEdges]
+);
 
   const directions: Array<{ id: 'LR' | 'RL' | 'TB' | 'BT'; label: string; tooltip: string }> = [
     { id: 'LR', label: 'LR', tooltip: 'Left to Right' },
