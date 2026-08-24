@@ -17,6 +17,7 @@ import {
   NodeProps,
 } from '@xyflow/react';
 import dagre from 'dagre';
+import { toast } from 'sonner';
 
 import {
   ClockIcon,
@@ -313,30 +314,65 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
     }
   };
 
-const onConnect = useCallback(
-  (params: Connection) => {
-    // Add the edge to React Flow canvas state
-    setEdges((eds) =>
-      addEdge(
-        { ...params, animated: true, style: { stroke: '#6ee7b7', strokeWidth: 2 } },
-        eds
-      )
-    );
-
-    // Format and log ONLY the newly created dependency
-    const newDependency = {
-      dependencies: [
-        {
-          parentWorkflowJobId: params.source,
-          childWorkflowJobId: params.target,
+  const createNewDep = async (newDependency: {
+    dependencies: {
+      parentWorkflowJobId: string;
+      childWorkflowJobId: string;
+    }[];
+  }) => {
+    try {
+      const response = await fetch(`http://localhost:3000/workflow/${workflowId}/dependencies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      ],
-    };
+        body: JSON.stringify(newDependency),
+      });
 
-    // console.log('New Dependency Added:', JSON.stringify(newDependency, null, 2));
-  },
-  [setEdges]
-);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create dependency');
+      }
+
+      const data = await response.json();
+      console.log('Dependency created:', data);
+
+      // Toast notification
+      toast.success('Dependency created successfully!', {
+        description: `${newDependency.dependencies.length} dependency added to workflow`,
+      });
+
+      return data;
+    } catch (error) {
+      console.error('Failed to create dependency:', error);
+      toast.error('Failed to create dependency', {
+        description: error instanceof Error ? error.message : 'Please try again',
+      });
+    }
+  };
+
+  const onConnect = useCallback(
+    (params: Connection) => {
+      // Add the edge to React Flow canvas state
+      setEdges((eds) =>
+        addEdge({ ...params, animated: true, style: { stroke: '#6ee7b7', strokeWidth: 2 } }, eds)
+      );
+
+      // Format and log ONLY the newly created dependency
+      const newDependency = {
+        dependencies: [
+          {
+            parentWorkflowJobId: params.source,
+            childWorkflowJobId: params.target,
+          },
+        ],
+      };
+
+      console.log('New Dependency Added:', JSON.stringify(newDependency, null, 2));
+      createNewDep(newDependency);
+    },
+    [setEdges]
+  );
 
   const directions: Array<{ id: 'LR' | 'RL' | 'TB' | 'BT'; label: string; tooltip: string }> = [
     { id: 'LR', label: 'LR', tooltip: 'Left to Right' },
