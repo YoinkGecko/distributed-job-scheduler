@@ -24,6 +24,7 @@ import {
   CpuChipIcon,
   CircleStackIcon,
   ExclamationTriangleIcon,
+  XMarkIcon, // <-- NEW
 } from '@heroicons/react/24/outline';
 
 interface Props {
@@ -197,6 +198,7 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
   const [layoutDirection, setLayoutDirection] = useState<'LR' | 'RL' | 'TB' | 'BT'>('LR');
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [selectedJob, setSelectedJob] = useState<JobDetail | null>(null); // <-- NEW
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -285,6 +287,16 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
       });
     });
   }, [selectedNode, setEdges]);
+
+  // <-- NEW: Update selectedJob when selectedNode or jobDetails changes
+  useEffect(() => {
+    if (selectedNode) {
+      const job = jobDetails.find(j => j.id === selectedNode);
+      setSelectedJob(job || null);
+    } else {
+      setSelectedJob(null);
+    }
+  }, [selectedNode, jobDetails]);
 
   const getJobDetails = async (jobId: string) => {
     try {
@@ -455,6 +467,103 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
           </div>
         </div>
       </div>
+
+      {/* <-- NEW: Job Details Panel */}
+      {selectedJob && (
+        <div className="absolute top-20 right-4 z-20 w-80 max-h-[calc(100%-6rem)] overflow-y-auto bg-card/95 backdrop-blur-lg border border-border rounded-xl shadow-2xl p-4 transition-all duration-200 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <h4 className="text-sm font-semibold text-foreground">Job Details</h4>
+              <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                {selectedJob.id.slice(0, 12)}…
+              </p>
+            </div>
+            <button
+              onClick={() => setSelectedNode(null)}
+              className="p-1 rounded-md hover:bg-secondary/80 transition-colors"
+            >
+              <XMarkIcon className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </div>
+
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between border-b border-border/40 pb-1">
+              <span className="text-muted-foreground">Status</span>
+              <span className={`font-medium ${
+                selectedJob.status === 'COMPLETED' ? 'text-emerald-400' :
+                selectedJob.status === 'FAILED' ? 'text-rose-400' :
+                selectedJob.status === 'RUNNING' ? 'text-blue-400' :
+                selectedJob.status === 'WAITING' ? 'text-amber-400' :
+                'text-muted-foreground'
+              }`}>
+                {selectedJob.status}
+              </span>
+            </div>
+            <div className="flex justify-between border-b border-border/40 pb-1">
+              <span className="text-muted-foreground">Type</span>
+              <span className="font-mono">{selectedJob.type}</span>
+            </div>
+            <div className="flex justify-between border-b border-border/40 pb-1">
+              <span className="text-muted-foreground">Priority</span>
+              <span>P-{selectedJob.priority}</span>
+            </div>
+            <div className="flex justify-between border-b border-border/40 pb-1">
+              <span className="text-muted-foreground">Max Retries</span>
+              <span>{selectedJob.maxRetries}</span>
+            </div>
+            <div className="flex justify-between border-b border-border/40 pb-1">
+              <span className="text-muted-foreground">Retry Count</span>
+              <span>{selectedJob.retryCount}</span>
+            </div>
+            <div className="flex justify-between border-b border-border/40 pb-1">
+              <span className="text-muted-foreground">Worker</span>
+              <span className="font-mono truncate max-w-[120px]">
+                {selectedJob.assignedWorker || '—'}
+              </span>
+            </div>
+            <div className="flex justify-between border-b border-border/40 pb-1">
+              <span className="text-muted-foreground">Created</span>
+              <span className="font-mono text-[10px]">
+                {selectedJob.createdAt ? new Date(selectedJob.createdAt).toLocaleString() : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between border-b border-border/40 pb-1">
+              <span className="text-muted-foreground">Scheduled</span>
+              <span className="font-mono text-[10px]">
+                {selectedJob.scheduledAt ? new Date(selectedJob.scheduledAt).toLocaleString() : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between border-b border-border/40 pb-1">
+              <span className="text-muted-foreground">Started</span>
+              <span className="font-mono text-[10px]">
+                {selectedJob.startedAt ? new Date(selectedJob.startedAt).toLocaleString() : '—'}
+              </span>
+            </div>
+            <div className="flex justify-between border-b border-border/40 pb-1">
+              <span className="text-muted-foreground">Completed</span>
+              <span className="font-mono text-[10px]">
+                {selectedJob.completedAt ? new Date(selectedJob.completedAt).toLocaleString() : '—'}
+              </span>
+            </div>
+            {selectedJob.lastError && (
+              <div className="mt-2 p-2 bg-rose-500/10 border border-rose-500/30 rounded-md">
+                <span className="text-rose-400 text-[10px] font-medium">Error</span>
+                <p className="text-[10px] text-rose-300/90 mt-0.5 break-words">
+                  {selectedJob.lastError}
+                </p>
+              </div>
+            )}
+            {selectedJob.payload && Object.keys(selectedJob.payload).length > 0 && (
+              <div className="mt-2">
+                <span className="text-muted-foreground text-[10px]">Payload</span>
+                <pre className="mt-1 text-[9px] font-mono bg-secondary/60 p-2 rounded border border-border/40 overflow-x-auto max-h-32">
+                  {JSON.stringify(selectedJob.payload, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* xyflow Canvas */}
       <ReactFlow
