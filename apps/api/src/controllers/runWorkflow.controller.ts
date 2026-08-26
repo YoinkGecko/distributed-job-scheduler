@@ -46,3 +46,9 @@ export async function getExecution(req: Request, res: Response) {
   const executions = await runWorkflowService.getExecution(workflowId as string);
   return res.status(200).send(executions);
 }
+
+export async function getExecutionJobs(req:Request,res:Response){
+  const {workflowExecutionId} = req.params;
+  const workflowExecutionjobs = await runWorkflowService.getExecutionJobs(workflowExecutionId as string);
+  return res.status(200).send(workflowExecutionjobs);
+}

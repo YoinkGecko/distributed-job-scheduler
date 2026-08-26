@@ -290,4 +290,8 @@ export class RunWorkflowService {
   async getExecution(workflowId:string){
     return await this.workflowExecutionRepository.getExecution(workflowId);
   }
+
+  async getExecutionJobs(workflowExecutionId:string){
+    return await this.workflowExecutionRepository.getExecutionJobs(workflowExecutionId);
+  }
 }
