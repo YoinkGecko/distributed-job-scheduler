@@ -419,7 +419,7 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
         <VisualBuilder workflowId={workflowId} workflowName={workflow.name} />
       ) : (
         /* === EXECUTIONS TAB === */
-        <ExecutionsTab />
+       <ExecutionsTab workflowId={workflowId} />
       )}
     </div>
   );
