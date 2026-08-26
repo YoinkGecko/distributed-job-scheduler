@@ -40,3 +40,9 @@ export async function runWorkflow(req: Request, res: Response) {
     workflowExecution,
   });
 }
+
+export async function getExecution(req: Request, res: Response) {
+  const { workflowId } = req.params;
+  const executions = await runWorkflowService.getExecution(workflowId as string);
+  return res.status(200).send(executions);
+}

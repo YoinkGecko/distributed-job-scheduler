@@ -286,4 +286,8 @@ export class RunWorkflowService {
       );
     }
   }
+
+  async getExecution(workflowId:string){
+    return await this.workflowExecutionRepository.getExecution(workflowId);
+  }
 }

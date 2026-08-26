@@ -82,4 +82,9 @@ export class WorkflowExecutionRepository {
     workflowExecutionId,
   ]);
 }
+
+  async getExecution(workflowId:string): Promise<WorkflowExecution> {
+    const result = await pool.query(`Select * from workflow_executions where workflow_id = $1`,[workflowId]);
+    return snakeToCamel(result.rows);
+  }
 }
