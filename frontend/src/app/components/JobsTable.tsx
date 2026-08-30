@@ -44,6 +44,7 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50];
 interface JobsTableProps {
   jobs: Job[];
   setJobs: React.Dispatch<React.SetStateAction<Job[]>>;
+  onDataFetched?: () => void;  // optional callback
 }
 
 function formatTs(ts: string | null | undefined): string {
@@ -66,7 +67,7 @@ function formatTs(ts: string | null | undefined): string {
   }
 }
 
-export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
+export default function JobsTable({ jobs, setJobs, onDataFetched}: JobsTableProps) {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<JobStatus[]>([]);
@@ -122,6 +123,7 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
 
       setJobs(formattedJobs);
       setTotalCount(data.total || formattedJobs.length);
+      if (onDataFetched) onDataFetched();
     } catch (err) {
       console.error('Error fetching jobs:', err);
       toast.error('Failed to load jobs');
