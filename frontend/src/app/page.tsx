@@ -1,17 +1,45 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import AppLayout from '@/components/AppLayout';
 import JobsMetricsCards from './components/JobsMetricsCards';
 import JobsTable from './components/JobsTable';
 import type { Job, JobPriority } from '@/lib/mockData';
 
+interface Metrics {
+  total: number;
+  running: number;
+  failed: number;
+  dead: number;
+  retrying: number;
+}
+
 export default function JobsListPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [metrics, setMetrics] = useState<Metrics>({
+    total: 0,
+    running: 0,
+    failed: 0,
+    dead: 0,
+    retrying: 0,
+  });
   const [lastUpdated, setLastUpdated] = useState<string>('—');
+  const [loadingMetrics, setLoadingMetrics] = useState(true);
 
-  // Callback for JobsTable to update the "last updated" timestamp
-  const handleDataFetched = () => {
+  const fetchMetrics = useCallback(async () => {
+    try {
+      setLoadingMetrics(true);
+      const res = await fetch('http://localhost:3000/jobs/metrics');
+      const data = await res.json();
+      setMetrics(data);
+    } catch (err) {
+      console.error('Error fetching metrics:', err);
+    } finally {
+      setLoadingMetrics(false);
+    }
+  }, []);
+
+  const updateTimestamp = () => {
     const now = new Date();
     setLastUpdated(
       now.toLocaleTimeString('en-IN', {
@@ -22,6 +50,25 @@ export default function JobsListPage() {
         hour12: true,
       }) + ' IST'
     );
+  };
+
+  // Fetch metrics on mount
+  useEffect(() => {
+    fetchMetrics();
+    updateTimestamp();
+    // Optional: refresh metrics every 30 seconds
+    const interval = setInterval(() => {
+      fetchMetrics();
+      updateTimestamp();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchMetrics]);
+
+  // Callback when JobsTable completes a data fetch (for pagination/filter changes)
+  const handleDataFetched = () => {
+    updateTimestamp();
+    // Optionally refresh metrics after a job action (delete/retry/add)
+    fetchMetrics();
   };
 
   return (
@@ -42,14 +89,14 @@ export default function JobsListPage() {
           </div>
         </div>
 
-        {/* KPI cards get the jobs array */}
-        <JobsMetricsCards jobs={jobs} />
+        {/* KPI cards – now receive metrics directly */}
+        <JobsMetricsCards metrics={metrics} loading={loadingMetrics} />
 
-        {/* Jobs table – it now owns the data fetching */}
+        {/* Jobs table – now fully responsible for data fetching */}
         <JobsTable 
           jobs={jobs} 
           setJobs={setJobs} 
-          onDataFetched={handleDataFetched}  // <-- new prop
+          onDataFetched={handleDataFetched}
         />
       </div>
     </AppLayout>

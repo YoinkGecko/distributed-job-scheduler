@@ -1,5 +1,4 @@
 import React from 'react';
-import type { Job } from '@/lib/mockData';
 import {
   BriefcaseIcon,
   PlayIcon,
@@ -7,16 +6,21 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 
-interface JobsMetricsCardsProps {
-  jobs?: Job[];
+interface Metrics {
+  total: number;
+  running: number;
+  failed: number;
+  dead: number;
+  retrying: number;
 }
 
-export default function JobsMetricsCards({ jobs = [] }: JobsMetricsCardsProps) {
-  const total = jobs.length;
-  const running = jobs.filter((j) => j?.status === 'RUNNING').length;
-  const failed = jobs.filter((j) => j?.status === 'FAILED').length;
-  const dead = jobs.filter((j) => j?.status === 'DEAD').length;
-  const retrying = jobs.filter((j) => (j?.retryCount ?? 0) > 0).length;
+interface JobsMetricsCardsProps {
+  metrics: Metrics;
+  loading?: boolean;
+}
+
+export default function JobsMetricsCards({ metrics, loading = false }: JobsMetricsCardsProps) {
+  const { total, running, failed, dead, retrying } = metrics;
 
   const cards = [
     {
@@ -71,16 +75,36 @@ export default function JobsMetricsCards({ jobs = [] }: JobsMetricsCardsProps) {
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={`skeleton-${i}`} className="card p-4 flex flex-col gap-3 animate-pulse">
+            <div className="flex items-center justify-between">
+              <div className="h-4 w-20 bg-muted rounded" />
+              <div className="w-8 h-8 rounded-lg bg-muted" />
+            </div>
+            <div className="h-8 w-16 bg-muted rounded" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
       {cards.map((card) => {
         const IconComponent = card.icon;
+        const highlight = 
+          (card.key === 'metric-dead' && dead > 0) ||
+          (card.key === 'metric-failed' && failed > 0);
+
         return (
           <div
             key={card.key}
-            className={`card p-4 flex flex-col gap-3 ${
-              card.key === 'metric-dead' && dead > 0 ? 'border-red-500/30 bg-red-500/5' : ''
-            } ${card.key === 'metric-failed' && failed > 0 ? 'border-amber-500/20' : ''}`}
+            className={`card p-4 flex flex-col gap-3 transition-all ${
+              highlight ? 'border-red-500/30 bg-red-500/5' : ''
+            }`}
           >
             <div className="flex items-center justify-between">
               <span className="metric-label">{card.label}</span>
