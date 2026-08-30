@@ -18,11 +18,31 @@ export async function createJob(req: Request, res: Response) {
 }
 
 export async function getJobs(req: Request, res: Response) {
-  const jobs = await jobService.getJobs();
-  return res.status(200).json({
-    length: jobs.length,
-    jobs,
-  });
+  try {
+    // Parse query parameters with defaults
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = (req.query.search as string) || '';
+    const status = req.query.status ? (req.query.status as string).split(',') : [];
+    const priority = req.query.priority ? (req.query.priority as string).split(',') : [];
+    const sort = (req.query.sort as string) || 'scheduledAt';
+    const order = (req.query.order as string) || 'desc';
+
+    const result = await jobService.getJobs({
+      page,
+      limit,
+      search,
+      status,
+      priority,
+      sort,
+      order,
+    });
+
+    return res.status(200).json(result); // { jobs, total }
+  } catch (error) {
+    console.error('Error fetching jobs:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 }
 
 export async function getJob(req: Request, res: Response) {

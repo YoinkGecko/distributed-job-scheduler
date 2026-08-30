@@ -1,9 +1,8 @@
 'use client';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { mockJobs } from '@/lib/mockData';
 import type { Job, JobPriority } from '@/lib/mockData';
 import { StatusBadge, PriorityBadge } from '@/components/ui/StatusBadge';
 import type { JobStatus } from '@/components/ui/StatusBadge';
@@ -40,7 +39,6 @@ const STATUS_FILTERS: JobStatus[] = [
   'DEAD',
 ];
 const PRIORITY_FILTERS: JobPriority[] = ['LOW', 'NORMAL', 'HIGH', 'CRITICAL'];
-const PRIORITY_ORDER: Record<JobPriority, number> = { LOW: 1, NORMAL: 5, HIGH: 10, CRITICAL: 100 };
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
 interface JobsTableProps {
@@ -80,85 +78,69 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showAddForm, setShowAddForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Debounced search
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Fetch jobs from server with pagination, filters, sorting
+  const fetchJobs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('limit', String(pageSize));
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (statusFilter.length) params.set('status', statusFilter.join(','));
+      if (priorityFilter.length) params.set('priority', priorityFilter.join(','));
+      params.set('sort', sortField);
+      params.set('order', sortDir);
+
+      const res = await fetch(`http://localhost:3000/jobs?${params.toString()}`);
+      const data = await res.json();
+
+      // Transform priority values to strings if needed
+      const formattedJobs = (data.jobs || []).map((job: any) => {
+        let priorityString: JobPriority = 'NORMAL';
+        const priorityValue =
+          typeof job.priority === 'string' ? parseInt(job.priority, 10) : job.priority;
+        if (typeof priorityValue === 'number' && !isNaN(priorityValue)) {
+          if (priorityValue <= 10) priorityString = 'LOW';
+          else if (priorityValue <= 40) priorityString = 'NORMAL';
+          else if (priorityValue <= 70) priorityString = 'HIGH';
+          else priorityString = 'CRITICAL';
+        } else {
+          priorityString = job.priority || 'NORMAL';
+        }
+        return { ...job, priority: priorityString };
+      });
+
+      setJobs(formattedJobs);
+      setTotalCount(data.total || formattedJobs.length);
+    } catch (err) {
+      console.error('Error fetching jobs:', err);
+      toast.error('Failed to load jobs');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize, debouncedSearch, statusFilter, priorityFilter, sortField, sortDir, setJobs]);
 
   useEffect(() => {
-    const fetchJobs = () => {
-      fetch('http://localhost:3000/jobs')
-        .then((res) => res.json())
-        .then((data) => {
-          const formattedJobs = (data.jobs || []).map((job: any) => {
-            let priorityString: JobPriority = 'NORMAL';
-
-            // Try to convert to number if it's a string
-            const priorityValue =
-              typeof job.priority === 'string' ? parseInt(job.priority, 10) : job.priority;
-
-            // Check if we have a valid number
-            if (typeof priorityValue === 'number' && !isNaN(priorityValue)) {
-              if (priorityValue <= 10) priorityString = 'LOW';
-              else if (priorityValue <= 40) priorityString = 'NORMAL';
-              else if (priorityValue <= 70) priorityString = 'HIGH';
-              else priorityString = 'CRITICAL';
-            } else {
-              // Use the string value directly (e.g., 'LOW', 'NORMAL', etc.)
-              priorityString = job.priority || 'NORMAL';
-            }
-
-            return {
-              ...job,
-              priority: priorityString,
-            };
-          });
-
-          setJobs(formattedJobs);
-        })
-        .catch((err) => console.error('Error fetching jobs:', err));
-    };
-
     fetchJobs();
-    const interval = setInterval(fetchJobs, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [fetchJobs]);
 
-  const filtered = useMemo(() => {
-    let result = [...jobs];
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (j) =>
-          j.id?.toLowerCase().includes(q) ||
-          j.type?.toLowerCase().includes(q) ||
-          (j.assignedWorker && j.assignedWorker.toLowerCase().includes(q))
-      );
-    }
-    if (statusFilter.length > 0) {
-      result = result.filter((j) => statusFilter.includes(j.status));
-    }
-    if (priorityFilter.length > 0) {
-      result = result.filter((j) => priorityFilter.includes(j.priority));
-    }
-    result.sort((a, b) => {
-      let aVal: string | number = '';
-      let bVal: string | number = '';
-      if (sortField === 'priority') {
-        aVal = PRIORITY_ORDER[a.priority];
-        bVal = PRIORITY_ORDER[b.priority];
-      } else if (sortField === 'maxRetries') {
-        aVal = a.maxRetries;
-        bVal = b.maxRetries;
-      } else {
-        aVal = (a[sortField] ?? '') as string;
-        bVal = (b[sortField] ?? '') as string;
-      }
-      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return result;
-  }, [jobs, search, statusFilter, priorityFilter, sortField, sortDir]);
+  // When filters change, reset to page 1
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter, priorityFilter, sortField, sortDir, pageSize]);
 
-  const totalPages = Math.ceil(filtered.length / pageSize);
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+  // Compute total pages from totalCount
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   function handleSort(field: SortField) {
     if (sortField === field) {
@@ -167,24 +149,21 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
       setSortField(field);
       setSortDir('asc');
     }
-    setPage(1);
   }
 
   function toggleStatusFilter(s: JobStatus) {
     setStatusFilter((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
-    setPage(1);
   }
 
   function togglePriorityFilter(p: JobPriority) {
     setPriorityFilter((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]));
-    setPage(1);
   }
 
   function toggleSelectAll() {
-    if (selected.size === paginated.length) {
+    if (selected.size === jobs.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(paginated.map((j) => j.id)));
+      setSelected(new Set(jobs.map((j) => j.id)));
     }
   }
 
@@ -200,25 +179,33 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
   function handleDelete(id: string) {
     setDeletingId(id);
     setTimeout(() => {
+      // Optimistic update: remove from local list, then refetch to sync
       setJobs((prev) => prev.filter((j) => j.id !== id));
-      setDeletingId(null);
       setSelected((prev) => {
         const next = new Set(prev);
         next.delete(id);
         return next;
       });
+      setDeletingId(null);
       toast.success('Job deleted', { description: `Job ${id} removed from queue` });
+      // Optionally refetch to update counts
+      fetchJobs();
     }, 250);
   }
 
   function handleBulkDelete() {
     const count = selected.size;
+    // In a real app, you'd send a batch delete request.
+    // For now, we'll delete each individually (or you can implement a bulk API).
+    // For simplicity, we'll just remove from local and refetch.
     setJobs((prev) => prev.filter((j) => !selected.has(j.id)));
     setSelected(new Set());
     toast.success(`${count} job${count > 1 ? 's' : ''} deleted`);
+    fetchJobs(); // refresh
   }
 
   function handleRetry(id: string) {
+    // Optimistic update; you might also call an API to retry
     setJobs((prev) =>
       prev.map((j) =>
         j.id === id
@@ -227,12 +214,15 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
       )
     );
     toast.success('Job re-queued', { description: `${id} scheduled for retry` });
+    fetchJobs(); // refresh after a moment
   }
 
   function handleAddJob(job: Job) {
+    // Add locally and refetch
     setJobs((prev) => [job, ...prev]);
     setShowAddForm(false);
     toast.success('Job created', { description: `${job.type} added to queue` });
+    fetchJobs();
   }
 
   function SortIcon({ field }: { field: SortField }) {
@@ -257,10 +247,9 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
 
   return (
     <div className="space-y-4">
-      {/* Filters row */}
+      {/* Filters row - same as before */}
       <div className="card p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
-          {/* Search */}
           <div className="relative flex-1 min-w-48">
             <MagnifyingGlassIcon
               width={16}
@@ -273,7 +262,7 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
-                setPage(1);
+                // page reset will happen in the useEffect that depends on debouncedSearch
               }}
               className="input-field pl-9"
             />
@@ -319,6 +308,7 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
                 setStatusFilter([]);
                 setPriorityFilter([]);
                 setSearch('');
+                setDebouncedSearch('');
                 setPage(1);
               }}
               className="text-xs px-2.5 py-1 rounded-full border border-red-500/20 text-red-400 hover:bg-red-500/10 flex items-center gap-1 transition-all"
@@ -327,7 +317,7 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
             </button>
           )}
           <span className="ml-auto text-xs text-muted-foreground">
-            {filtered.length} of {jobs.length} jobs
+            {loading ? 'Loading...' : `${totalCount} total jobs`}
           </span>
         </div>
       </div>
@@ -341,7 +331,7 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
                 <th className="w-10 px-4 py-3">
                   <input
                     type="checkbox"
-                    checked={selected.size === paginated.length && paginated.length > 0}
+                    checked={jobs.length > 0 && selected.size === jobs.length}
                     onChange={toggleSelectAll}
                     className="w-4 h-4 rounded border-border bg-input accent-primary cursor-pointer"
                   />
@@ -365,7 +355,16 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
               </tr>
             </thead>
             <tbody>
-              {paginated.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-16 text-center">
+                    <div className="flex justify-center items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm text-muted-foreground">Loading jobs…</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : jobs.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-4 py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -380,6 +379,7 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
                           setStatusFilter([]);
                           setPriorityFilter([]);
                           setSearch('');
+                          setDebouncedSearch('');
                         }}
                         className="btn-secondary text-xs"
                       >
@@ -389,7 +389,7 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
                   </td>
                 </tr>
               ) : (
-                paginated.map((job, index) => (
+                jobs.map((job, index) => (
                   <tr
                     key={job.id || index}
                     className={`border-b border-border/50 transition-all duration-200 hover:bg-secondary/40 ${
@@ -504,30 +504,32 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
               ))}
             </select>
             <span className="text-xs text-muted-foreground">
-              {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtered.length)} of{' '}
-              {filtered.length}
+              {totalCount === 0
+                ? '0–0 of 0'
+                : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, totalCount)} of ${totalCount}`}
             </span>
           </div>
 
           <div className="flex items-center gap-1">
-            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((n) => (
-              <button
-                key={`page-${n}`}
-                onClick={() => setPage(n)}
-                className={`w-7 h-7 rounded-md text-xs font-medium transition-all ${
-                  page === n
-                    ? 'bg-primary/10 text-primary border border-primary/30'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                }`}
-              >
-                {n}
-              </button>
-            ))}
+            {totalPages > 1 &&
+              Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={`page-${n}`}
+                  onClick={() => setPage(n)}
+                  className={`w-7 h-7 rounded-md text-xs font-medium transition-all ${
+                    page === n
+                      ? 'bg-primary/10 text-primary border border-primary/30'
+                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
           </div>
         </div>
       </div>
 
-      {/* Bulk action bar */}
+      {/* Bulk action bar - unchanged */}
       {selected.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 slide-up">
           <div className="flex items-center gap-3 bg-card border border-border rounded-xl px-5 py-3 shadow-2xl shadow-black/60">
@@ -566,7 +568,7 @@ export default function JobsTable({ jobs, setJobs }: JobsTableProps) {
           <AddJobForm
             onAdd={handleAddJob}
             onCancel={() => setShowAddForm(false)}
-            existingCount={jobs.length}
+            existingCount={totalCount}
           />
         </div>
       )}

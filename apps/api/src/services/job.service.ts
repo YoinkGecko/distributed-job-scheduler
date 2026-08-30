@@ -1,6 +1,7 @@
 import { JobRepository } from "@scheduler/database";
 import { CreateJobInput, JobStatus, JobPriority, Job } from "@scheduler/types";
 import { pool } from "@scheduler/database";
+import { snakeToCamel } from "@scheduler/database";
 
 //import other services
 import { OutboxService } from "./outbox.service.js";
@@ -83,14 +84,117 @@ export class JobService {
 
   }
 
-  async getJobs(){
-    const jobs = await this.jobRepository.getJobs();
-    return jobs;
+async getJobs(options: GetJobsOptions) {
+  const { page, limit, search, status, priority, sort, order } = options;
+  const offset = (page - 1) * limit;
+
+  // Map frontend sort field to database column name
+  const sortMap: Record<string, string> = {
+    id: 'id',
+    type: 'type',
+    status: 'status',
+    priority: 'priority',
+    scheduledAt: 'scheduled_at',
+    maxRetries: 'max_retries',
+    assignedWorker: 'assigned_worker',
+  };
+  const sortColumn = sortMap[sort] || 'scheduled_at';
+  const sortDir = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+  // Build WHERE clauses
+  const conditions: string[] = [];
+  const params: any[] = [];
+  let paramIndex = 1;
+
+  // Search (case-insensitive)
+  if (search) {
+    conditions.push(
+      `(id::text ILIKE $${paramIndex} OR type ILIKE $${paramIndex} OR assigned_worker ILIKE $${paramIndex})`
+    );
+    params.push(`%${search}%`);
+    paramIndex++;
   }
+
+  // Status filter (using PostgreSQL ANY)
+  if (status.length > 0) {
+    conditions.push(`status = ANY($${paramIndex})`);
+    params.push(status);
+    paramIndex++;
+  }
+
+  // Priority filter – map string to numeric range
+  if (priority.length > 0) {
+    const priorityRanges: string[] = [];
+    for (const p of priority) {
+      switch (p.toUpperCase()) {
+        case 'LOW':
+          priorityRanges.push('priority <= 10');
+          break;
+        case 'NORMAL':
+          priorityRanges.push('priority BETWEEN 11 AND 40');
+          break;
+        case 'HIGH':
+          priorityRanges.push('priority BETWEEN 41 AND 70');
+          break;
+        case 'CRITICAL':
+          priorityRanges.push('priority > 70');
+          break;
+        default:
+          break;
+      }
+    }
+    if (priorityRanges.length > 0) {
+      conditions.push(`(${priorityRanges.join(' OR ')})`);
+    }
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  // Query for the paginated data
+  const dataQuery = `
+    SELECT *
+    FROM jobs
+    ${whereClause}
+    ORDER BY ${sortColumn} ${sortDir}
+    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+  `;
+  const dataParams = [...params, limit, offset];
+
+  // Query for total count (without pagination)
+  const countQuery = `
+    SELECT COUNT(*) as total
+    FROM jobs
+    ${whereClause}
+  `;
+  // Count query only needs the WHERE parameters (exclude limit & offset)
+  const countParams = params.slice(0, params.length); // all params except the last two
+
+  // Execute both queries in parallel
+  const [dataResult, countResult] = await Promise.all([
+    pool.query(dataQuery, dataParams),
+    pool.query(countQuery, countParams),
+  ]);
+
+  const jobs = snakeToCamel(dataResult.rows);
+  const total = parseInt(countResult.rows[0].total, 10);
+
+  return { jobs, total };
+}
 
     async getJob(jobId:string){
     if(!jobId) return false;
     const jobs = await this.jobRepository.findById(jobId);
     return jobs;
   }
+}
+
+
+interface GetJobsOptions {
+  page: number;
+  limit: number;
+  search: string;
+  status: string[];
+  priority: string[];
+  sort: string;
+  order: string;
 }

@@ -26,6 +26,11 @@ CREATE TABLE jobs (
   last_error TEXT
 );
 
+CREATE INDEX idx_jobs_status ON jobs(status);
+CREATE INDEX idx_jobs_priority ON jobs(priority);
+CREATE INDEX idx_jobs_scheduled_at ON jobs(scheduled_at);
+CREATE INDEX idx_jobs_type ON jobs(type);
+CREATE INDEX idx_jobs_assigned_worker ON jobs(assigned_worker);
 
 CREATE TABLE outbox_events (
     id UUID PRIMARY KEY, -- the table rows unique id not job id!!
