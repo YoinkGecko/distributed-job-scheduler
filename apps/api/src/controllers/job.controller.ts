@@ -55,3 +55,13 @@ export async function getJob(req: Request, res: Response) {
     job,
   });
 }
+
+export async function getJobMetrics(req: Request, res: Response) {
+  try {
+    const metrics = await jobService.getJobMetrics();
+    return res.status(200).json(metrics);
+  } catch (error) {
+    console.error('Error fetching job metrics:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}

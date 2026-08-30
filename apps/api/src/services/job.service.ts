@@ -186,6 +186,28 @@ async getJobs(options: GetJobsOptions) {
     const jobs = await this.jobRepository.findById(jobId);
     return jobs;
   }
+
+  // services/jobService.ts
+async getJobMetrics() {
+  const queries = `
+    SELECT 
+      COUNT(*) AS total,
+      COUNT(*) FILTER (WHERE status = 'RUNNING') AS running,
+      COUNT(*) FILTER (WHERE status = 'FAILED') AS failed,
+      COUNT(*) FILTER (WHERE status = 'DEAD') AS dead,
+      COUNT(*) FILTER (WHERE retry_count > 0) AS retrying
+    FROM jobs
+  `;
+  const result = await pool.query(queries);
+  const row = result.rows[0];
+  return {
+    total: parseInt(row.total, 10),
+    running: parseInt(row.running, 10),
+    failed: parseInt(row.failed, 10),
+    dead: parseInt(row.dead, 10),
+    retrying: parseInt(row.retrying, 10),
+  };
+}
 }
 
 
