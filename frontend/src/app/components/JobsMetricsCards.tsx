@@ -51,7 +51,7 @@ export default function JobsMetricsCards({ metrics, loading = false }: JobsMetri
       iconClass: 'text-amber-400',
       iconBg: 'bg-amber-500/10',
       valueClass: 'text-amber-400',
-      trend: failed > 0 ? `${failed} failed` : 'All clear',
+      trend: failed > 0 ? `${failed.toLocaleString('en-IN')} failed` : 'All clear',
     },
     {
       key: 'metric-dead',
@@ -113,7 +113,9 @@ export default function JobsMetricsCards({ metrics, loading = false }: JobsMetri
               </div>
             </div>
             <div>
-              <p className={`text-hero-metric ${card.valueClass}`}>{card.value}</p>
+              <p className={`text-hero-metric ${card.valueClass}`}>
+                {card.value.toLocaleString('en-IN')}   {/* <-- Indian formatting */}
+              </p>
               {card.trend && (
                 <p className="text-xs text-muted-foreground mt-0.5">{card.trend}</p>
               )}
