@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-//import { format } from 'date-fns'; // optional, but we can use built-in toLocaleString
 
 interface Execution {
   id: string;
@@ -13,15 +12,23 @@ interface Execution {
   updatedAt: string;
 }
 
-interface ExecutionsTabProps {
+interface ExecutionsTableProps {
   workflowId: string;
+  onSelectExecution?: (executionId: string) => void;
+  selectedExecutionId?: string | null;
 }
 
-export default function ExecutionsTab({ workflowId }: ExecutionsTabProps) {
+export default function ExecutionsTable({
+  workflowId,
+  onSelectExecution,
+  selectedExecutionId: externalSelectedId,
+}: ExecutionsTableProps) {
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
+  const [internalSelectedId, setInternalSelectedId] = useState<string | null>(null);
+
+  const selectedId = externalSelectedId !== undefined ? externalSelectedId : internalSelectedId;
 
   useEffect(() => {
     const fetchExecutions = async () => {
@@ -33,8 +40,10 @@ export default function ExecutionsTab({ workflowId }: ExecutionsTabProps) {
         const data = await res.json();
         setExecutions(data);
         // Auto-select first execution if any
-        if (data.length > 0 && !selectedExecutionId) {
-          setSelectedExecutionId(data[0].id);
+        if (data.length > 0 && !selectedId) {
+          const firstId = data[0].id;
+          if (onSelectExecution) onSelectExecution(firstId);
+          else setInternalSelectedId(firstId);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
@@ -80,6 +89,14 @@ export default function ExecutionsTab({ workflowId }: ExecutionsTabProps) {
     );
   };
 
+  const handleRowClick = (execId: string) => {
+    if (onSelectExecution) {
+      onSelectExecution(execId);
+    } else {
+      setInternalSelectedId(execId);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -106,53 +123,32 @@ export default function ExecutionsTab({ workflowId }: ExecutionsTabProps) {
   }
 
   return (
-    <div className="flex h-[500px] gap-4 mt-4">
-      {/* Left: Table */}
-      <div className="w-1/3 border border-border rounded-xl overflow-hidden bg-card/50">
-        <div className="overflow-y-auto h-full">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-card border-b border-border">
-              <tr>
-                <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Execution</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Started</th>
+    <div className="border border-border rounded-xl overflow-hidden bg-card/50 h-full">
+      <div className="overflow-y-auto h-full">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-card border-b border-border">
+            <tr>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Execution</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Started</th>
+            </tr>
+          </thead>
+          <tbody>
+            {executions.map((exec) => (
+              <tr
+                key={exec.id}
+                onClick={() => handleRowClick(exec.id)}
+                className={`cursor-pointer border-b border-border/40 transition-colors hover:bg-primary/5 ${
+                  selectedId === exec.id ? 'bg-primary/10' : ''
+                }`}
+              >
+                <td className="px-4 py-2.5 font-mono text-xs">{exec.id.slice(0, 8)}…</td>
+                <td className="px-4 py-2.5">{getStatusBadge(exec.status)}</td>
+                <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatDate(exec.startedAt)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {executions.map((exec) => (
-                <tr
-                  key={exec.id}
-                  onClick={() => setSelectedExecutionId(exec.id)}
-                  className={`cursor-pointer border-b border-border/40 transition-colors hover:bg-primary/5 ${
-                    selectedExecutionId === exec.id ? 'bg-primary/10' : ''
-                  }`}
-                >
-                  <td className="px-4 py-2.5 font-mono text-xs">{exec.id.slice(0, 8)}…</td>
-                  <td className="px-4 py-2.5">{getStatusBadge(exec.status)}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatDate(exec.startedAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Right: Placeholder for execution detail */}
-      <div className="flex-1 border border-border rounded-xl bg-card/30 flex items-center justify-center">
-        {selectedExecutionId ? (
-          <div className="text-center">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-              <span className="text-2xl">📋</span>
-            </div>
-            <h4 className="text-lg font-medium text-foreground">Execution Details</h4>
-            <p className="text-sm text-muted-foreground mt-1">
-              Showing details for <span className="font-mono">{selectedExecutionId.slice(0, 12)}…</span>
-            </p>
-            <p className="text-xs text-muted-foreground/70 mt-4">Coming soon: full execution trace, logs, and metrics.</p>
-          </div>
-        ) : (
-          <p className="text-muted-foreground">Select an execution from the list</p>
-        )}
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

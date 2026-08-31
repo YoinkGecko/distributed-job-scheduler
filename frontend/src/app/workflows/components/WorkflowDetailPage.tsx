@@ -20,7 +20,6 @@ import {
   PlayCircleIcon,
 } from '@heroicons/react/24/outline';
 import VisualBuilder from './VisualBuilder';
-import ExecutionsTab from './ExecutionsTab';  // <-- NEW import
 
 type WorkflowStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
 type ScheduleType = 'ONCE' | 'INTERVAL' | 'CRON';
@@ -102,7 +101,7 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'builder' | 'executions'>('details'); // <-- added 'executions'
+  const [activeTab, setActiveTab] = useState<'details' | 'builder'>('details');
 
   const fetchWorkflow = async () => {
     try {
@@ -284,17 +283,6 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
           <Squares2X2Icon width={16} height={16} />
           Visual Builder
         </button>
-        <button
-          onClick={() => setActiveTab('executions')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all ${
-            activeTab === 'executions'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-          }`}
-        >
-          <PlayCircleIcon width={16} height={16} />
-          Executions
-        </button>
       </div>
 
       {/* Tab Content */}
@@ -417,10 +405,7 @@ export default function WorkflowDetailPage({ workflowId }: Props) {
       ) : activeTab === 'builder' ? (
         /* === VISUAL BUILDER TAB === */
         <VisualBuilder workflowId={workflowId} workflowName={workflow.name} />
-      ) : (
-        /* === EXECUTIONS TAB === */
-       <ExecutionsTab workflowId={workflowId} />
-      )}
+      ) : null}
     </div>
   );
 }

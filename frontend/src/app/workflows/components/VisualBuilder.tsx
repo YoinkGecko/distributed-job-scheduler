@@ -18,6 +18,8 @@ import {
 } from '@xyflow/react';
 import dagre from 'dagre';
 import { toast } from 'sonner';
+import ExecutionsTable from './ExecutionsTable';
+
 
 import {
   ClockIcon,
@@ -746,6 +748,7 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
           </div>
         </div>
       )}
+      <ExecutionsTable workflowId={workflowId} />
     </>
   );
 }
