@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -25,6 +25,8 @@ import {
   CircleStackIcon,
   ExclamationTriangleIcon,
   XMarkIcon,
+  PlusIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
 
 interface Props {
@@ -200,10 +202,21 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<JobDetail | null>(null);
 
+  // State for Add Job Modal
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<JobDetail[]>([]);
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [addingJobs, setAddingJobs] = useState(false);
+
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   const nodeTypes = useMemo(() => ({ customJob: NodeCard }), []);
+
+  // Debounce search
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchWorkflowJobs();
@@ -259,10 +272,8 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
   useEffect(() => {
     setEdges((currentEdges) => {
       return currentEdges.map((edge) => {
-        // If a node is selected
         if (selectedNode) {
           const isConnected = edge.source === selectedNode || edge.target === selectedNode;
-          
           if (isConnected) {
             return {
               ...edge,
@@ -277,8 +288,6 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
             };
           }
         }
-        
-        // Default style when no node selected
         return {
           ...edge,
           animated: true,
@@ -431,116 +440,312 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
     { id: 'BT', label: 'BT', tooltip: 'Bottom to Top' },
   ];
 
+  // ---------- Add Job Modal Logic ----------
+  const searchJobs = async (query: string) => {
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setLoadingSearch(true);
+    try {
+      const res = await fetch(`http://localhost:3000/jobs?search=${encodeURIComponent(query)}&limit=20`);
+      if (!res.ok) throw new Error('Search failed');
+      const data = await res.json();
+      // data.jobs is array; we map to JobDetail-like objects (only id and type needed)
+      const jobs = data.jobs.map((j: any) => ({
+        id: j.id,
+        type: j.type,
+        // other fields not needed for selection
+      }));
+      setSearchResults(jobs);
+    } catch (err) {
+      console.error('Search error:', err);
+      toast.error('Failed to search jobs');
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
+
+  // Debounced search
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      searchJobs(searchQuery);
+    }, 400);
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, [searchQuery]);
+
+  const toggleSelectJob = (jobId: string) => {
+    setSelectedJobIds(prev => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId);
+      else next.add(jobId);
+      return next;
+    });
+  };
+
+  const handleAddSelectedJobs = async () => {
+    if (selectedJobIds.size === 0) {
+      toast.warning('No jobs selected');
+      return;
+    }
+    setAddingJobs(true);
+    try {
+      const jobIds = Array.from(selectedJobIds);
+      const response = await fetch(`http://localhost:3000/workflow/${workflowId}/jobs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobIds }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Failed to add jobs');
+      }
+      toast.success(`Added ${jobIds.length} job(s) to workflow`);
+      // Refresh workflow data
+      await fetchWorkflowJobs();
+      await fetchDependencies(workflowId);
+      // Reset modal
+      setIsAddModalOpen(false);
+      setSearchQuery('');
+      setSearchResults([]);
+      setSelectedJobIds(new Set());
+    } catch (err) {
+      console.error('Add jobs error:', err);
+      toast.error('Failed to add jobs', { description: err instanceof Error ? err.message : 'Unknown error' });
+    } finally {
+      setAddingJobs(false);
+    }
+  };
+
+  // ---------- Render ----------
   return (
-    <div className="card h-[580px] w-full border border-border overflow-hidden relative rounded-xl bg-background">
-      {/* Overlay Toolbar Header Left */}
-      <div className="absolute top-4 left-4 z-10 flex items-center gap-3">
-        <div className="bg-card/90 backdrop-blur px-3.5 py-2 rounded-lg border border-border flex items-center gap-3 shadow-lg">
-          <div>
-            <h3 className="text-xs font-semibold text-foreground">{workflowName}</h3>
-            <p className="text-[10px] font-mono-data text-muted-foreground">
-              ID: {workflowId.slice(0, 8)} • Jobs: {jobDetails.length} • Edges: {edges.length}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Overlay Toolbar Header Right - Compact Layout Segmented Control with Hover Tooltips */}
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
-        <div className="bg-card/90 backdrop-blur p-1 rounded-lg border border-border flex items-center gap-1 shadow-lg">
-          <span className="text-[11px] font-medium text-muted-foreground px-2">Layout</span>
-          <div className="flex items-center gap-0.5 bg-secondary/60 p-0.5 rounded-md border border-border/40">
-            {directions.map((dir) => (
-              <button
-                key={dir.id}
-                title={dir.tooltip}
-                onClick={() => setLayoutDirection(dir.id)}
-                className={`px-2 py-0.5 text-[11px] font-semibold rounded transition-all duration-150 ${
-                  layoutDirection === dir.id
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
-                }`}
-              >
-                {dir.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Job Details Panel - Simplified, no glassmorphism */}
-      {selectedJob && (
-        <div className="absolute top-20 right-4 z-20 w-80 max-h-[calc(100%-6rem)] overflow-y-auto bg-card border border-border rounded-xl shadow-xl p-4">
-          <div className="flex items-start justify-between mb-3">
+    <>
+      <div className="card h-[580px] w-full border border-border overflow-hidden relative rounded-xl bg-background">
+        {/* Overlay Toolbar Header Left */}
+        <div className="absolute top-4 left-4 z-10 flex items-center gap-3">
+          <div className="bg-card/90 backdrop-blur px-3.5 py-2 rounded-lg border border-border flex items-center gap-3 shadow-lg">
             <div>
-              <h4 className="text-sm font-semibold text-foreground">Job Details</h4>
-              <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                {selectedJob.id}
+              <h3 className="text-xs font-semibold text-foreground">{workflowName}</h3>
+              <p className="text-[10px] font-mono-data text-muted-foreground">
+                ID: {workflowId.slice(0, 8)} • Jobs: {jobDetails.length} • Edges: {edges.length}
               </p>
             </div>
-            <button
-              onClick={() => setSelectedNode(null)}
-              className="p-1 rounded-md hover:bg-secondary/80 transition-colors"
-            >
-              <XMarkIcon className="w-4 h-4 text-muted-foreground" />
-            </button>
+          </div>
+        </div>
+
+        {/* Overlay Toolbar Header Right - Layout + Add Button */}
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
+          <div className="bg-card/90 backdrop-blur p-1 rounded-lg border border-border flex items-center gap-1 shadow-lg">
+            <span className="text-[11px] font-medium text-muted-foreground px-2">Layout</span>
+            <div className="flex items-center gap-0.5 bg-secondary/60 p-0.5 rounded-md border border-border/40">
+              {directions.map((dir) => (
+                <button
+                  key={dir.id}
+                  title={dir.tooltip}
+                  onClick={() => setLayoutDirection(dir.id)}
+                  className={`px-2 py-0.5 text-[11px] font-semibold rounded transition-all duration-150 ${
+                    layoutDirection === dir.id
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
+                  }`}
+                >
+                  {dir.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between border-b border-border/40 pb-1">
-              <span className="text-muted-foreground">Type</span>
-              <span className="font-mono">{selectedJob.type}</span>
-            </div>
-            <div className="flex justify-between border-b border-border/40 pb-1">
-              <span className="text-muted-foreground">Priority</span>
-              <span>P-{selectedJob.priority}</span>
-            </div>
-            <div className="flex justify-between border-b border-border/40 pb-1">
-              <span className="text-muted-foreground">Max Retries</span>
-              <span>{selectedJob.maxRetries}</span>
-            </div>
-            <div className="flex justify-between border-b border-border/40 pb-1">
-              <span className="text-muted-foreground">Created</span>
-              <span className="font-mono text-[10px]">
-                {selectedJob.createdAt ? new Date(selectedJob.createdAt).toLocaleString() : '—'}
-              </span>
-            </div>
-            {selectedJob.lastError && (
-              <div className="mt-2 p-2 bg-rose-500/10 border border-rose-500/30 rounded-md">
-                <span className="text-rose-400 text-[10px] font-medium">Error</span>
-                <p className="text-[10px] text-rose-300/90 mt-0.5 break-words">
-                  {selectedJob.lastError}
+          {/* Add Job Button */}
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-lg hover:bg-primary/90 transition-all border border-primary/30"
+          >
+            <PlusIcon className="w-3.5 h-3.5" />
+            Add Job(s)
+          </button>
+        </div>
+
+        {/* Job Details Panel - Simplified */}
+        {selectedJob && (
+          <div className="absolute top-20 right-4 z-20 w-80 max-h-[calc(100%-6rem)] overflow-y-auto bg-card border border-border rounded-xl shadow-xl p-4">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground">Job Details</h4>
+                <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                  {selectedJob.id}
                 </p>
               </div>
-            )}
-            {selectedJob.payload && Object.keys(selectedJob.payload).length > 0 && (
-              <div className="mt-2">
-                <span className="text-muted-foreground text-[10px]">Payload</span>
-                <pre className="mt-1 text-[9px] font-mono bg-secondary/60 p-2 rounded border border-border/40 overflow-x-auto max-h-32">
-                  {JSON.stringify(selectedJob.payload, null, 2)}
-                </pre>
+              <button
+                onClick={() => setSelectedNode(null)}
+                className="p-1 rounded-md hover:bg-secondary/80 transition-colors"
+              >
+                <XMarkIcon className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between border-b border-border/40 pb-1">
+                <span className="text-muted-foreground">Type</span>
+                <span className="font-mono">{selectedJob.type}</span>
               </div>
-            )}
+              <div className="flex justify-between border-b border-border/40 pb-1">
+                <span className="text-muted-foreground">Priority</span>
+                <span>P-{selectedJob.priority}</span>
+              </div>
+              <div className="flex justify-between border-b border-border/40 pb-1">
+                <span className="text-muted-foreground">Max Retries</span>
+                <span>{selectedJob.maxRetries}</span>
+              </div>
+              <div className="flex justify-between border-b border-border/40 pb-1">
+                <span className="text-muted-foreground">Created</span>
+                <span className="font-mono text-[10px]">
+                  {selectedJob.createdAt ? new Date(selectedJob.createdAt).toLocaleString() : '—'}
+                </span>
+              </div>
+              {selectedJob.lastError && (
+                <div className="mt-2 p-2 bg-rose-500/10 border border-rose-500/30 rounded-md">
+                  <span className="text-rose-400 text-[10px] font-medium">Error</span>
+                  <p className="text-[10px] text-rose-300/90 mt-0.5 break-words">
+                    {selectedJob.lastError}
+                  </p>
+                </div>
+              )}
+              {selectedJob.payload && Object.keys(selectedJob.payload).length > 0 && (
+                <div className="mt-2">
+                  <span className="text-muted-foreground text-[10px]">Payload</span>
+                  <pre className="mt-1 text-[9px] font-mono bg-secondary/60 p-2 rounded border border-border/40 overflow-x-auto max-h-32">
+                    {JSON.stringify(selectedJob.payload, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* xyflow Canvas */}
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeClick={onNodeClick}
+          onPaneClick={onPaneClick}
+          fitView
+          colorMode="dark"
+        >
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#27272a" />
+          <Controls className="!border-border !bg-card !text-foreground !fill-foreground rounded-lg overflow-hidden shadow-xl" />
+        </ReactFlow>
+      </div>
+
+      {/* Add Job Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <h3 className="text-lg font-semibold text-foreground">Add Jobs to Workflow</h3>
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-1.5 rounded-md hover:bg-secondary/80 transition-colors"
+              >
+                <XMarkIcon className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="p-5 border-b border-border/50">
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search by job ID or type (min 2 chars)..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                {loadingSearch && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
+              {searchQuery.length > 0 && searchQuery.length < 2 && (
+                <p className="text-xs text-muted-foreground mt-1.5">Type at least 2 characters to search</p>
+              )}
+            </div>
+
+            {/* Results List */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-1.5">
+              {searchResults.length === 0 && searchQuery.length >= 2 && !loadingSearch && (
+                <div className="text-sm text-muted-foreground text-center py-8">No jobs found</div>
+              )}
+              {searchResults.map((job) => (
+                <label
+                  key={job.id}
+                  className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-secondary/60 ${
+                    selectedJobIds.has(job.id) ? 'bg-primary/10 border border-primary/30' : 'border border-transparent'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedJobIds.has(job.id)}
+                    onChange={() => toggleSelectJob(job.id)}
+                    className="w-4 h-4 rounded border-border bg-input accent-primary cursor-pointer"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-mono text-foreground truncate">{job.id}</div>
+                    <div className="text-xs text-muted-foreground truncate">{job.type}</div>
+                  </div>
+                </label>
+              ))}
+              {searchResults.length > 0 && (
+                <div className="text-xs text-muted-foreground pt-2">
+                  {selectedJobIds.size} selected
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="p-5 border-t border-border flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  setIsAddModalOpen(false);
+                  setSearchQuery('');
+                  setSearchResults([]);
+                  setSelectedJobIds(new Set());
+                }}
+                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddSelectedJobs}
+                disabled={selectedJobIds.size === 0 || addingJobs}
+                className={`px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
+                  selectedJobIds.size === 0 || addingJobs
+                    ? 'bg-secondary text-muted-foreground cursor-not-allowed'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg'
+                }`}
+              >
+                {addingJobs ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  <>Add Selected ({selectedJobIds.size})</>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
-
-      {/* xyflow Canvas */}
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodeClick={onNodeClick}
-        onPaneClick={onPaneClick}
-        fitView
-        colorMode="dark"
-      >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#27272a" />
-        <Controls className="!border-border !bg-card !text-foreground !fill-foreground rounded-lg overflow-hidden shadow-xl" />
-      </ReactFlow>
-    </div>
+    </>
   );
 }
