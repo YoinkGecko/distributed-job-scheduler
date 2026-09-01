@@ -197,9 +197,6 @@ export default function JobsTable({ jobs, setJobs, onDataFetched}: JobsTableProp
 
   function handleBulkDelete() {
     const count = selected.size;
-    // In a real app, you'd send a batch delete request.
-    // For now, we'll delete each individually (or you can implement a bulk API).
-    // For simplicity, we'll just remove from local and refetch.
     setJobs((prev) => prev.filter((j) => !selected.has(j.id)));
     setSelected(new Set());
     toast.success(`${count} job${count > 1 ? 's' : ''} deleted`);
