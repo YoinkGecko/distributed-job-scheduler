@@ -201,11 +201,48 @@ interface Execution {
   updatedAt: string;
 }
 
+// ---------- Executions Table Component (with expandable sub-table) ----------
+interface Execution {
+  id: string;
+  workflowId: string;
+  status: string;
+  startedAt: string;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ExecutionJob {
+  id: string;
+  workflowExecutionId: string;
+  workflowJobId: string;
+  type: string;
+  payload: Record<string, any>;
+  status: string;
+  priority: number;
+  scheduledAt: string;
+  createdAt: string;
+  updatedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  retryCount: number;
+  maxRetries: number;
+  assignedWorker: string | null;
+  heartbeatAt: string | null;
+  lockExpiresAt: string | null;
+  lastError: string | null;
+}
+
 const ExecutionsTable = ({ workflowId }: { workflowId: string }) => {
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // New states for expansion & sub-table
+  const [expandedExecutionId, setExpandedExecutionId] = useState<string | null>(null);
+  const [executionJobsMap, setExecutionJobsMap] = useState<Record<string, ExecutionJob[]>>({});
+  const [loadingJobs, setLoadingJobs] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const fetchExecutions = async () => {
@@ -256,16 +293,46 @@ const ExecutionsTable = ({ workflowId }: { workflowId: string }) => {
     };
     const c = config[status] || { bg: 'bg-zinc-800', text: 'text-zinc-500', dot: 'bg-zinc-500' };
     return (
-      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${c.bg} ${c.text}`}>
+      <span
+        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${c.bg} ${c.text}`}
+      >
         <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
         {status}
       </span>
     );
   };
 
-  const handleRowClick = (execId: string) => {
+  const handleRowClick = async (execId: string) => {
+    // Toggle collapse: if already expanded, collapse it
+    if (expandedExecutionId === execId) {
+      setExpandedExecutionId(null);
+      return;
+    }
+
+    // Expand the clicked row
+    setExpandedExecutionId(execId);
     setSelectedId(execId);
-    toast.info(`Coming soon – execution details for ${execId.slice(0, 8)} will be shown here.`);
+
+    // If we already fetched jobs for this execution, skip the API call
+    if (executionJobsMap[execId]) {
+      return;
+    }
+
+    // Fetch jobs for this execution
+    setLoadingJobs((prev) => ({ ...prev, [execId]: true }));
+    try {
+      const res = await fetch(`http://localhost:3000/workflow/${execId}/execution/jobs`);
+      if (!res.ok) throw new Error(`Failed to fetch execution jobs: ${res.statusText}`);
+      const data: ExecutionJob[] = await res.json();
+      setExecutionJobsMap((prev) => ({ ...prev, [execId]: data }));
+    } catch (err) {
+      toast.error('Failed to load execution details', {
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
+      console.error('Fetch execution jobs error:', err);
+    } finally {
+      setLoadingJobs((prev) => ({ ...prev, [execId]: false }));
+    }
   };
 
   if (loading) {
@@ -299,25 +366,110 @@ const ExecutionsTable = ({ workflowId }: { workflowId: string }) => {
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-card border-b border-border">
             <tr>
-              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Execution</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Started</th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Execution
+              </th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Status
+              </th>
+              <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Started
+              </th>
             </tr>
           </thead>
           <tbody>
-            {executions.map((exec) => (
-              <tr
-                key={exec.id}
-                onClick={() => handleRowClick(exec.id)}
-                className={`cursor-pointer border-b border-border/40 transition-colors hover:bg-primary/5 ${
-                  selectedId === exec.id ? 'bg-primary/10' : ''
-                }`}
-              >
-                <td className="px-4 py-2.5 font-mono text-xs">{exec.id.slice(0, 8)}…</td>
-                <td className="px-4 py-2.5">{getStatusBadge(exec.status)}</td>
-                <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatDate(exec.startedAt)}</td>
-              </tr>
-            ))}
+            {executions.map((exec) => {
+              const isExpanded = expandedExecutionId === exec.id;
+              const jobs = executionJobsMap[exec.id] || [];
+              const isLoadingJobs = loadingJobs[exec.id] || false;
+
+              return (
+                <React.Fragment key={exec.id}>
+                  {/* Main row */}
+                  <tr
+                    onClick={() => handleRowClick(exec.id)}
+                    className={`cursor-pointer border-b border-border/40 transition-colors hover:bg-primary/5 ${
+                      selectedId === exec.id ? 'bg-primary/10' : ''
+                    }`}
+                  >
+                    <td className="px-4 py-2.5 font-mono text-xs">{exec.id.slice(0, 8)}…</td>
+                    <td className="px-4 py-2.5">{getStatusBadge(exec.status)}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                      {formatDate(exec.startedAt)}
+                    </td>
+                  </tr>
+
+                  {/* Expanded sub-table row */}
+                  {isExpanded && (
+                    <tr key={`${exec.id}-expand`}>
+                      <td
+                        colSpan={3}
+                        className="px-4 py-3 bg-secondary/20 border-b border-border/40"
+                      >
+                        {isLoadingJobs ? (
+                          <div className="flex items-center justify-center py-4">
+                            <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            <span className="ml-3 text-xs text-muted-foreground">
+                              Loading jobs…
+                            </span>
+                          </div>
+                        ) : jobs.length > 0 ? (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-border/60">
+                                  <th className="text-left py-1.5 px-2 text-muted-foreground font-medium">
+                                    Type
+                                  </th>
+                                  <th className="text-left py-1.5 px-2 text-muted-foreground font-medium">
+                                    Status
+                                  </th>
+                                  <th className="text-left py-1.5 px-2 text-muted-foreground font-medium">
+                                    Retries
+                                  </th>
+                                  <th className="text-left py-1.5 px-2 text-muted-foreground font-medium">
+                                    Worker
+                                  </th>
+                                  <th className="text-left py-1.5 px-2 text-muted-foreground font-medium">
+                                    Heartbeat
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {jobs.map((job) => (
+                                  <tr
+                                    key={job.id}
+                                    className="border-b border-border/20 last:border-0 hover:bg-secondary/30"
+                                  >
+                                    <td className="py-1.5 px-2 font-mono text-[11px]">
+                                      {job.type}
+                                    </td>
+                                    <td className="py-1.5 px-2">{getStatusBadge(job.status)}</td>
+                                    <td className="py-1.5 px-2 font-mono text-[11px]">
+                                      {job.retryCount} / {job.maxRetries}
+                                    </td>
+                                    <td className="py-1.5 px-2 font-mono text-[11px] truncate max-w-[100px]">
+                                      {job.assignedWorker || '—'}
+                                    </td>
+                                    <td className="py-1.5 px-2 font-mono text-[10px] text-muted-foreground">
+                                      {formatDate(job.heartbeatAt)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="text-center text-muted-foreground text-sm py-4">
+                            No jobs found for this execution.
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -432,7 +584,7 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
   // Update selectedJob when selectedNode or jobDetails changes
   useEffect(() => {
     if (selectedNode) {
-      const job = jobDetails.find(j => j.id === selectedNode);
+      const job = jobDetails.find((j) => j.id === selectedNode);
       setSelectedJob(job || null);
     } else {
       setSelectedJob(null);
@@ -580,7 +732,9 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
     }
     setLoadingSearch(true);
     try {
-      const res = await fetch(`http://localhost:3000/jobs?search=${encodeURIComponent(query)}&limit=20`);
+      const res = await fetch(
+        `http://localhost:3000/jobs?search=${encodeURIComponent(query)}&limit=20`
+      );
       if (!res.ok) throw new Error('Search failed');
       const data = await res.json();
       const jobs = data.jobs.map((j: any) => ({
@@ -608,7 +762,7 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
   }, [searchQuery]);
 
   const toggleSelectJob = (jobId: string) => {
-    setSelectedJobIds(prev => {
+    setSelectedJobIds((prev) => {
       const next = new Set(prev);
       if (next.has(jobId)) next.delete(jobId);
       else next.add(jobId);
@@ -642,7 +796,9 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
       setSelectedJobIds(new Set());
     } catch (err) {
       console.error('Add jobs error:', err);
-      toast.error('Failed to add jobs', { description: err instanceof Error ? err.message : 'Unknown error' });
+      toast.error('Failed to add jobs', {
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
     } finally {
       setAddingJobs(false);
     }
@@ -804,7 +960,9 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
                 )}
               </div>
               {searchQuery.length > 0 && searchQuery.length < 2 && (
-                <p className="text-xs text-muted-foreground mt-1.5">Type at least 2 characters to search</p>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  Type at least 2 characters to search
+                </p>
               )}
             </div>
 
@@ -817,7 +975,9 @@ export default function VisualBuilder({ workflowId, workflowName }: Props) {
                 <label
                   key={job.id}
                   className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-secondary/60 ${
-                    selectedJobIds.has(job.id) ? 'bg-primary/10 border border-primary/30' : 'border border-transparent'
+                    selectedJobIds.has(job.id)
+                      ? 'bg-primary/10 border border-primary/30'
+                      : 'border border-transparent'
                   }`}
                 >
                   <input
