@@ -244,27 +244,64 @@ const ExecutionsTable = ({ workflowId }: { workflowId: string }) => {
   const [executionJobsMap, setExecutionJobsMap] = useState<Record<string, ExecutionJob[]>>({});
   const [loadingJobs, setLoadingJobs] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    const fetchExecutions = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await fetch(`http://localhost:3000/workflow/${workflowId}/executions`);
-        if (!res.ok) throw new Error(`Failed to fetch executions: ${res.statusText}`);
-        const data = await res.json();
-        setExecutions(data);
-        if (data.length > 0 && !selectedId) {
-          setSelectedId(data[0].id);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setLoading(false);
+  // Fetch executions
+  const fetchExecutions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(`http://localhost:3000/workflow/${workflowId}/executions`);
+      if (!res.ok) throw new Error(`Failed to fetch executions: ${res.statusText}`);
+      const data = await res.json();
+      setExecutions(data);
+      if (data.length > 0 && !selectedId) {
+        setSelectedId(data[0].id);
       }
-    };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Fetch jobs for a specific execution
+  const fetchExecutionJobs = async (execId: string) => {
+    setLoadingJobs((prev) => ({ ...prev, [execId]: true }));
+    try {
+      const res = await fetch(`http://localhost:3000/workflow/${execId}/execution/jobs`);
+      if (!res.ok) throw new Error(`Failed to fetch execution jobs: ${res.statusText}`);
+      const data: ExecutionJob[] = await res.json();
+      setExecutionJobsMap((prev) => ({ ...prev, [execId]: data }));
+    } catch (err) {
+      toast.error('Failed to load execution details', {
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
+      console.error('Fetch execution jobs error:', err);
+    } finally {
+      setLoadingJobs((prev) => ({ ...prev, [execId]: false }));
+    }
+  };
+
+  // Auto-refresh: fetch executions every 20 seconds
+  useEffect(() => {
     fetchExecutions();
+
+    const interval = setInterval(() => {
+      fetchExecutions();
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, [workflowId]);
+
+  // Auto-refresh expanded sub-tables every 20 seconds
+  useEffect(() => {
+    if (!expandedExecutionId) return;
+
+    const interval = setInterval(() => {
+      fetchExecutionJobs(expandedExecutionId);
+    }, 30000); 
+
+    return () => clearInterval(interval);
+  }, [expandedExecutionId]);
 
   const formatDate = (ts: string | null) => {
     if (!ts) return '—';
@@ -319,20 +356,7 @@ const ExecutionsTable = ({ workflowId }: { workflowId: string }) => {
     }
 
     // Fetch jobs for this execution
-    setLoadingJobs((prev) => ({ ...prev, [execId]: true }));
-    try {
-      const res = await fetch(`http://localhost:3000/workflow/${execId}/execution/jobs`);
-      if (!res.ok) throw new Error(`Failed to fetch execution jobs: ${res.statusText}`);
-      const data: ExecutionJob[] = await res.json();
-      setExecutionJobsMap((prev) => ({ ...prev, [execId]: data }));
-    } catch (err) {
-      toast.error('Failed to load execution details', {
-        description: err instanceof Error ? err.message : 'Unknown error',
-      });
-      console.error('Fetch execution jobs error:', err);
-    } finally {
-      setLoadingJobs((prev) => ({ ...prev, [execId]: false }));
-    }
+    await fetchExecutionJobs(execId);
   };
 
   if (loading) {
