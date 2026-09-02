@@ -19,7 +19,7 @@ async function startRecoveryWorker() {
         GROUP_NAME,
         CONSUMER_NAME,
         30000,
-        "0-0", // Kept at "0-0"
+        "0-0", 
         "COUNT",
         10,
       )) as [string, Array<[string, string[]]>];
@@ -33,7 +33,6 @@ async function startRecoveryWorker() {
           jobData[fields[i]] = fields[i + 1];
         }
 
-        // FIX 1: Safeguard against malformed stream payloads without a entityId
         console.log(jobData); //jobData = { entityType: 'JOB', entityId: 'fbcde124-17c2-4f76-9623-a8e0e5b073ed' }
         if (!jobData.entityId) {
           console.log(
@@ -67,7 +66,6 @@ async function startRecoveryWorker() {
           continue;
         }
 
-        // FIX 3: Log current retry status and use >= to prevent overshoot beyond maxRetries
         console.log(
           `[${CONSUMER_NAME}] Job ${job.id} - RetryCount: ${job.retryCount}, MaxRetries: ${job.maxRetries}`,
         );
