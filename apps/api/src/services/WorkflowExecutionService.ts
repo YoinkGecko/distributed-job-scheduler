@@ -69,7 +69,7 @@ export class WorkflowExecutionService {
       updatedAt: new Date(),
     };
 
-    return this.workflowExecutionRepository.createExecution(execution, client);
+    return this.workflowExecutionRepository.create(execution, client);
   }
 
   private async createWorkflowJobExecutions(
@@ -81,7 +81,7 @@ export class WorkflowExecutionService {
       await this.workflowJobRepository.findByWorkflowId(workflowId);
 
     for (const workflowJob of workflowJobs) {
-      await this.workflowJobExecutionRepository.createExecution(
+      await this.workflowJobExecutionRepository.create(
         {
           id: randomUUID(),
           workflowExecutionId,
