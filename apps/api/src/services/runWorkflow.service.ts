@@ -278,6 +278,7 @@ export class RunWorkflowService {
     workflowJobExecutions: WorkflowJobExecution[],
     client: PoolClient,
   ): Promise<void> {
+    await this.workflowJobExecutionRepository.updateWorkflowExecutionStatus();
     for (const workflowJobExecution of workflowJobExecutions) {
       await this.outboxService.createWorkflowJobExecutionEvent(
         {

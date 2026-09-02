@@ -118,6 +118,7 @@ export class WorkflowJobExecutionRepository {
     status: JobStatus,
     client?: PoolClient,
   ): Promise<void> {
+    this.updateWorkflowExecutionStatus()
      const executor = client ?? pool;
     const query = `
     UPDATE workflow_job_executions
@@ -137,6 +138,7 @@ export class WorkflowJobExecutionRepository {
     status: JobStatus,
     client?: PoolClient,
   ): Promise<void> {
+    this.updateWorkflowExecutionStatus()
     const executor = client || pool;
     if (!workflowJobIds || workflowJobIds.length === 0) return;
 
