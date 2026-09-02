@@ -233,6 +233,7 @@ export class RunWorkflowService {
     workflowId: string,
     client: PoolClient,
   ): Promise<WorkflowJob[]> {
+    await this.workflowJobExecutionRepository.updateWorkflowExecutionStatus();
     const rootJobs = await this.workflowJobRepository.findRootWorkflowJobs(
       workflowId,
       client,

@@ -274,4 +274,51 @@ export class WorkflowJobExecutionRepository {
 
     return snakeToCamel(result.rows[0]);
   }
+
+async updateWorkflowExecutionStatus() {
+  const client = await pool.connect();
+  try {
+    // 1. Get all RUNNING workflow executions
+    const runningResult = await client.query(
+      `SELECT id FROM workflow_executions WHERE status = $1`,
+      ['RUNNING']
+    );
+
+    for (const row of runningResult.rows) {
+      const workflowExecutionId = row.id;
+
+      // 2. Get distinct statuses of job executions
+      const statusResult = await client.query(
+        `SELECT DISTINCT status FROM workflow_job_executions 
+         WHERE workflow_execution_id = $1`,
+        [workflowExecutionId]
+      );
+
+      // 3. Check if there is exactly one status and it's COMPLETED
+      const statuses = statusResult.rows.map(r => r.status);
+      const allCompleted = statuses.length === 1 && statuses[0] === JobStatus.COMPLETED;
+
+      if (allCompleted) {
+        await client.query(
+          `UPDATE workflow_executions 
+           SET status = $1, completed_at = $2, updated_at = $3 
+           WHERE id = $4`,
+          [
+            'COMPLETED',
+            new Date(),
+            new Date(),
+            workflowExecutionId,
+          ]
+        );
+        console.log(`✅ Workflow execution ${workflowExecutionId} marked as COMPLETED`);
+      }
+    }
+  } catch (error) {
+    console.error('Error marking workflow executions:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 }
